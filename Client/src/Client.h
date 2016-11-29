@@ -64,11 +64,18 @@ struct Message {
 };
 
 enum typ {
-	LOG_IN_OUT = 1, CONTROL_INFO = 2, MESSAGE = 3
+	LOG_IN_OUT = 1,
+	CONTROL_INFO = 2,
+	MESSAGE = 3
 };
 //FLAGS
 enum flag {
-	UNDEFINE = 0, SYN = 1, ACK = 2, FIN = 4, DUP = 8, GET = 16
+	UNDEFINE = 0,
+	SYN = 1,
+	ACK = 2,
+	FIN = 4,
+	DUP = 8,
+	GET = 16
 };
 
 void *Client(void*);

@@ -30,8 +30,11 @@ int main(void) {
 	}
 	result = connect(socketFD, (struct sockaddr *) &isa, sizeof(isa));
 	if (result == -1) {
+		perror("connect");
 		printf("ERROR on connect(): Verbindung fehlgeschlagen\n");
 		close(socketFD);
+	}else{
+		printf("Verbindung erfolgreich\n");
 	}
 	char name[NAME_SIZE];
 	do {
@@ -50,7 +53,7 @@ int main(void) {
 		fgets(command,20,stdin);
 		command[strcspn(command,"\n")] = 0;
 		if(strcmp(command,"/INFO")==0){
-			printf("Load info");
+			printf("Load info\n");
 			loadInfo();
 		}else if(strcmp(command,"/CLOSE")==0){
 			printf("Close programm\n");
