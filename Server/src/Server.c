@@ -20,6 +20,7 @@ struct ControlInfoBody body;
 int tabelleSize = 0;
 
 int main(void) {
+	int exitWileLoop = 0;
 	int result;
 	struct sockaddr_in isa;
 	memset((void *) &body, 0, sizeof(body));
@@ -60,7 +61,19 @@ int main(void) {
 
 	pthread_t serverId;
 	pthread_create(&serverId, NULL, Server, NULL);
-
+	char command[20];
+		while (!exitWileLoop) {
+			printf("Geben sie ein Befehle ein:\n");
+			fgets(command,20,stdin);
+			command[strcspn(command,"\n")] = 0;
+			if(strcmp(command,"/CONNECT") == 0){
+				char ipAdresse[20];
+				printf("Geben Si die Ip Addresse ein:\n");
+				fgets(ipAdresse,20,stdin);
+				ipAdresse[strcspn(command,"\n")] = 0;
+				connectToServer(ipAdresse);
+			}
+		}
 	pthread_join(serverId, NULL);
 	return EXIT_SUCCESS;
 }
@@ -283,4 +296,31 @@ void createHeader(struct CommonHeader* commonHeader, uint8_t type, uint8_t flag,
 	commonHeader->flag = flag;
 	commonHeader->version = version;
 	commonHeader->lenght = lenght;
+}
+
+void connectToServer(char *ipAdresse){
+	int result;
+	struct sockaddr_in isa;
+	int serverSocketFD = socket(AF_INET, SOCK_STREAM, 0);
+	if (socketFD == -1) {
+		printf("ERROR on socket(): Erstellung des Sockets fehlgeschlagen\n");
+	}
+	memset(&isa, 0, sizeof(isa));
+	isa.sin_family = AF_INET;
+	isa.sin_port = htons(PORT);
+	result = inet_pton(AF_INET, ipAdresse, &isa.sin_addr);
+	if (result == 0) {
+		printf("ERROR on inet_pton():  Not valid network address\n");
+	} else if (result == -1) {
+		printf("ERROR on inet_pton(): Not valid address family\n");
+	}
+	result = connect(serverSocketFD, (struct sockaddr *) &isa, sizeof(isa));
+	if (result == -1) {
+		perror("connect");
+		printf("ERROR on connect(): Verbindung fehlgeschlagen\n");
+		close(serverSocketFD);
+	} else {
+		FD_SET(serverSocketFD,&activefds);
+		printf("Verbindung Zum Server Erfolgreich\n");
+	}
 }

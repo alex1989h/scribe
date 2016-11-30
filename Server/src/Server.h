@@ -90,4 +90,5 @@ void* Server(void*);
 void newConnection(void);
 void receiveMessage(int);
 void createHeader(struct CommonHeader*,uint8_t,uint8_t,uint8_t,uint8_t);
+void connectToServer(char*);
 #endif /* SERVER_H_ */
