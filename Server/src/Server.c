@@ -125,8 +125,9 @@ void newConnection() {
 void receiveMessage(int tempSocketFD) {
 	int result;
 	bool nameExist = false;
+	bool changesOnTabelle = false;
 	char tempName[15];
-	int j;
+	int j,i;
 	struct CommonHeader commonHeader;
 	memset(&commonHeader, 0, sizeof(commonHeader));
 	result = recv(tempSocketFD, (void*) &commonHeader, sizeof(commonHeader), 0);
@@ -187,6 +188,7 @@ void receiveMessage(int tempSocketFD) {
 				body.tabelle[tabelleSize].hops = 1;
 				tabelleSize++;
 				connectionInfoSize++;
+				sendControllInfo(tempSocketFD);
 			}
 		} else if (commonHeader.flag == (FIN)) {
 			printf("Logout Request\n");
@@ -254,7 +256,34 @@ void receiveMessage(int tempSocketFD) {
 						"ERROR on send(): Unable to send Control Info Lcontrol Info\n");
 			}
 		} else {
+			printf("Controll info erhalten");
 			//TODO:Tabellen Austauschen
+			struct ControlInfoBody tempBody;
+			memset(&tempBody, 0, sizeof(tempBody));
+			result = recv(tempSocketFD, (void*) &tempBody,sizeof(tempBody), 0);
+			if (result == -1) {
+				printf("ERROR on recv: Unable to receive ControlInfobody\n");
+			}else{
+				changesOnTabelle = false;
+				for(i = 0;i<commonHeader.lenght;i++){
+					nameExist = false;
+					for(j = 0;j<tabelleSize;j++){
+						if(strcmp(tempBody.tabelle[i].benutzername, body.tabelle[j].benutzername) == 0) {
+							nameExist = true;
+							break;
+						}
+						if(!nameExist){
+							memcpy(&body.tabelle[tabelleSize],&tempBody.tabelle[i],sizeof(body.tabelle[tabelleSize]));
+							changesOnTabelle = true;
+							tabelleSize++;
+							strcpy(&connectionInfo[connectionInfoSize].name,tempBody.tabelle[i].benutzername);
+							connectionInfo[connectionInfoSize].socketFD = tempSocketFD;
+							connectionInfo[connectionInfoSize].hops = tempBody.tabelle[i].hops;
+							connectionInfoSize++;
+						}
+					}
+				}
+			}
 		}
 	} else if (commonHeader.type == MESSAGE) {
 		printf("Message request\n");
@@ -316,14 +345,30 @@ void connectToServer(char *ipAdresse){
 		printf("ERROR on inet_pton():  Not valid network address\n");
 	} else if (result == -1) {
 		printf("ERROR on inet_pton(): Not valid address family\n");
-	}
-	result = connect(serverSocketFD, (struct sockaddr *) &isa, sizeof(isa));
-	if (result == -1) {
-		perror("connect");
-		printf("ERROR on connect(): Verbindung fehlgeschlagen\n");
-		close(serverSocketFD);
 	} else {
-		FD_SET(serverSocketFD,&activefds);
-		printf("Verbindung Zum Server Erfolgreich\n");
+		result = connect(serverSocketFD, (struct sockaddr *) &isa, sizeof(isa));
+		if (result == -1) {
+			perror("connect");
+			printf("ERROR on connect(): Verbindung fehlgeschlagen\n");
+			close(serverSocketFD);
+		} else {
+			FD_SET(serverSocketFD, &activefds);
+			printf("Verbindung Zum Server Erfolgreich\n");
+			sendControllInfo(serverSocketFD);
+		}
+	}
+}
+
+void sendControllInfo(int tempSocketFD){
+	int result;
+	struct CommonHeader commonHeader;
+	createHeader(&commonHeader, CONTROL_INFO, 0, 1, tabelleSize);
+	result = send(tempSocketFD, (void*) &commonHeader, sizeof(commonHeader), 0);
+	if (result == -1) {
+		printf("ERROR on send(): Unable to send Control Info Lcontrol Info\n");
+	}
+	result = send(tempSocketFD, (void*) &body, sizeof(body), 0);
+	if (result == -1) {
+		printf("ERROR on send(): Unable to send Control Info Lcontrol Info\n");
 	}
 }
