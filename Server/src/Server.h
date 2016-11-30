@@ -93,4 +93,7 @@ void receiveMessage(int);
 void createHeader(struct CommonHeader*,uint8_t,uint8_t,uint8_t,uint8_t);
 void connectToServer(char*);
 void sendControlInfo(int);
+void notifyAllServers(void);
+void deleteEntry(int);
+void commands(void);
 #endif /* SERVER_H_ */
