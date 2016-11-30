@@ -13,6 +13,7 @@
 int socketFD;
 
 int main(void) {
+	int exitWileLoop = 0;
 	int result;
 	struct sockaddr_in isa;
 	socketFD = socket(AF_INET, SOCK_STREAM, 0);
@@ -33,6 +34,7 @@ int main(void) {
 		perror("connect");
 		printf("ERROR on connect(): Verbindung fehlgeschlagen\n");
 		close(socketFD);
+		exit(EXIT_FAILURE);
 	}else{
 		printf("Verbindung erfolgreich\n");
 	}
@@ -49,7 +51,8 @@ int main(void) {
 	pthread_t clientId;
 	pthread_create(&clientId, NULL, Client, NULL);
 	char command[20];
-	while (1) {
+	while (!exitWileLoop) {
+		printf("Geben sie ein Befehle ein:\n");
 		fgets(command,20,stdin);
 		command[strcspn(command,"\n")] = 0;
 		if(strcmp(command,"/INFO")==0){
@@ -58,6 +61,7 @@ int main(void) {
 		}else if(strcmp(command,"/CLOSE")==0){
 			printf("Close programm\n");
 			closeProgram(name);
+			exitWileLoop = 1;
 		}else if(strcmp(command,"/SEND") == 0){
 			printf("Send Message\n");
 			char message[255];
@@ -115,7 +119,7 @@ void *Client(void* not_used) {
 		if (commonHeader.type == LOG_IN_OUT) {
 			if (commonHeader.flag == (FIN | ACK)) {
 				printf("Logout\n");
-				return NULL;
+				exit(EXIT_SUCCESS);
 			}
 		}
 	}

@@ -11,21 +11,26 @@
 #include "Server.h"
 
 int socketFD;
+fd_set activefds, readfds;
 
-struct ConnectionInfo connectionInfo[100];
+struct ConnectionInfo connectionInfo[255];
+int connectionInfoSize = 0;
+
+struct ControlInfoBody body;
+int tabelleSize = 0;
 
 int main(void) {
 	int result;
 	struct sockaddr_in isa;
-
+	memset((void *) &body, 0, sizeof(body));
+	FD_ZERO(&activefds);
 	socketFD = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-
 	if (socketFD < 0) {
 		perror("socket");
 		printf("ERROR on socket(): Erstellung eines Sockets fehlgeschlagen.\n");
 		exit(EXIT_FAILURE);
 	}
-
+	FD_SET(socketFD, &activefds);
 	memset((void *) &isa, 0, sizeof(isa));
 
 	isa.sin_port = htons(PORT);
@@ -56,36 +61,226 @@ int main(void) {
 	pthread_t serverId;
 	pthread_create(&serverId, NULL, Server, NULL);
 
-	connectionHandling();
 	pthread_join(serverId, NULL);
 	return EXIT_SUCCESS;
 }
 
 void* Server(void* not_used) {
-
+	int i;
+	while (1) {
+		readfds = activefds;
+		if (select(FD_SETSIZE, &readfds, NULL, NULL, NULL) < 0) {
+			perror("select");
+			exit(EXIT_FAILURE);
+		}
+		for (i = 0; i < FD_SETSIZE; i++) {
+			if (FD_ISSET(i, &readfds)) {
+				if (i == socketFD) {
+					newConnection();
+					break;
+				} else {
+					receiveMessage(i);
+					break;
+				}
+			}
+		}
+	}
 	return NULL;
 }
 
-void connectionHandling() {
-	while (1) {
-		struct sockaddr_in tempIsa;
+void newConnection() {
+	struct sockaddr_in tempIsa;
 
-		memset((void*) &tempIsa, 0, sizeof(tempIsa));
-		unsigned int tempIsaSize = sizeof(tempIsa);
+	memset((void*) &tempIsa, 0, sizeof(tempIsa));
+	unsigned int tempIsaSize = sizeof(tempIsa);
 
-		int connectionFD = accept(socketFD, (struct sockaddr *) &tempIsa,
-				&tempIsaSize);
+	int connectionFD = accept(socketFD, (struct sockaddr *) &tempIsa,
+			&tempIsaSize);
 
-		if (connectionFD < 0) {
-			perror("accept");
-			printf(
-					"ERROR on accept: Es konnte keine Verbindung aufgebaut werden.\n");
-			continue;
-		} else {
-			printf("Accept successful!\n");
-			printf("Ip: %s\n",inet_ntoa(tempIsa.sin_addr));
-			printf("Port: %i\n",ntohs(tempIsa.sin_port));
-		}
+	if (connectionFD < 0) {
+		perror("accept");
+		printf(
+				"ERROR on accept: Es konnte keine Verbindung aufgebaut werden.\n");
+	} else {
+		FD_SET(connectionFD, &activefds);
+		printf("Accept successful!\n");
+		printf("Ip: %s\n", inet_ntoa(tempIsa.sin_addr));
+		printf("Port: %i\n", ntohs(tempIsa.sin_port));
 	}
+}
 
+void receiveMessage(int tempSocketFD) {
+	int result;
+	bool nameExist = false;
+	char tempName[15];
+	int j;
+	struct CommonHeader commonHeader;
+	memset(&commonHeader, 0, sizeof(commonHeader));
+	result = recv(tempSocketFD, (void*) &commonHeader, sizeof(commonHeader), 0);
+	if (result == -1) {
+		printf("ERROR on recv: Unable to receive Commonheader\n");
+	}
+	if (commonHeader.type == LOG_IN_OUT) {
+		if (commonHeader.flag == (SYN)) {
+			printf("Login Request\n");
+			struct LogInOutBody logInOutBody;
+			memset(&logInOutBody, 0, sizeof(logInOutBody));
+			result = recv(tempSocketFD, (void*) &logInOutBody,
+					sizeof(logInOutBody), 0);
+			if (result == -1) {
+				printf("ERROR on recv: Unable to receive LogInOutBody\n");
+			}
+			memset(&tempName, 0, sizeof(tempName));
+			strcpy(&tempName, logInOutBody.benutzername);
+			for (j = 0; j < connectionInfoSize; j++) {
+				if (strcmp(connectionInfo[j].name, tempName) == 0) {
+					nameExist = true;
+					break;
+				}
+			}
+			struct LogInOut logInOut;
+			memset(&logInOut, 0, sizeof(logInOut));
+			if (nameExist) {
+				createHeader(&logInOut.commonHeader, LOG_IN_OUT,
+						(DUP | SYN | ACK), 1, 0);
+
+				result = send(tempSocketFD, (void*) &logInOut, sizeof(logInOut),
+						0);
+				if (result == -1) {
+					printf(
+							"ERROR on send(): Unable to send LogInOut with DUB\n");
+				} else {
+					printf(
+							"Login fehlgeschlagen Benutzename: %s bereits vergeben\n",
+							tempName);
+				}
+			} else {
+				createHeader(&logInOut.commonHeader, LOG_IN_OUT, (SYN | ACK), 1,
+						0);
+
+				result = send(tempSocketFD, (void*) &logInOut, sizeof(logInOut),
+						0);
+				if (result == -1) {
+					printf(
+							"ERROR on send(): Unable to send LogInOut with ACK\n");
+				} else {
+					printf("Login erfolgreich. Neuer Benutze: %s hinzugefügt\n",
+							tempName);
+				}
+				strcpy(&connectionInfo[connectionInfoSize].name, tempName);
+				connectionInfo[connectionInfoSize].socketFD = tempSocketFD;
+				connectionInfo[connectionInfoSize].hops = 1;
+				strcpy(&body.tabelle[tabelleSize].benutzername, tempName);
+				body.tabelle[tabelleSize].hops = 1;
+				tabelleSize++;
+				connectionInfoSize++;
+			}
+		} else if (commonHeader.flag == (FIN)) {
+			struct LogInOutBody logInOutBody;
+			memset(&logInOutBody, 0, sizeof(logInOutBody));
+			result = recv(tempSocketFD, (void*) &logInOutBody,
+					sizeof(logInOutBody), 0);
+			if (result == -1) {
+				printf("ERROR on recv: Unable to receive LogInOutBody\n");
+			} else {
+				strcpy(&tempName, logInOutBody.benutzername);
+				for (j = 0; j < connectionInfoSize; j++) {
+					if (strcmp(connectionInfo[j].name, tempName) == 0) {
+						memset(&connectionInfo[j], 0,
+								sizeof(connectionInfo[j]));
+						memcpy(&connectionInfo[j],
+								&connectionInfo[connectionInfoSize - 1],
+								sizeof(connectionInfo[j]));
+						memset(&connectionInfo[connectionInfoSize - 1], 0,
+								sizeof(connectionInfo[connectionInfoSize - 1]));
+						connectionInfoSize--;
+						break;
+					}
+				}
+				for (j = 0; j < tabelleSize; j++) {
+					if (strcmp(body.tabelle[j].benutzername, tempName) == 0) {
+						memset(&body.tabelle[j], 0, sizeof(body.tabelle[j]));
+						memcpy(&body.tabelle[j], &body.tabelle[tabelleSize - 1],
+								sizeof(body.tabelle[j]));
+						memset(&body.tabelle[tabelleSize - 1], 0,
+								sizeof(body.tabelle[tabelleSize - 1]));
+						tabelleSize--;
+						break;
+					}
+				}
+				struct LogInOut logInOut;
+				memset(&logInOut, 0, sizeof(logInOut));
+				createHeader(&logInOut.commonHeader, LOG_IN_OUT, (FIN | ACK), 1,
+						0);
+				result = send(tempSocketFD, (void*) &logInOut, sizeof(logInOut),
+						0);
+				if (result == -1) {
+					printf(
+							"ERROR on send(): Unable to send LogInOut with DUB\n");
+				} else {
+					FD_CLR(tempSocketFD, &activefds);
+				}
+			}
+		}
+	} else if (commonHeader.type == CONTROL_INFO) {
+		if (commonHeader.flag == GET) {
+			struct CommonHeader tempHeader;
+			createHeader(&tempHeader, CONTROL_INFO, 0, 1, tabelleSize);
+
+			result = send(tempSocketFD, (void*) &tempHeader, sizeof(tempHeader),
+					0);
+			if (result == -1) {
+				printf(
+						"ERROR on send(): Unable to send Control Info Lcontrol Info\n");
+			}
+			result = send(tempSocketFD, (void*) &body, sizeof(body), 0);
+			if (result == -1) {
+				printf(
+						"ERROR on send(): Unable to send Control Info Lcontrol Info\n");
+			}
+		} else {
+
+		}
+	} else if (commonHeader.type == MESSAGE) {
+		struct MessageBody messageBody;
+		memset(&messageBody, 0, sizeof(messageBody));
+
+		result = recv(tempSocketFD, (void*) &messageBody, sizeof(messageBody),
+				0);
+		if (result == -1) {
+			printf("ERROR on recv: Nachricht nicht erhalten\n");
+		} else {
+			int sendSocketFD = 0;
+			for (j = 0; j < tabelleSize; j++) {
+				if (strcmp(connectionInfo[j].name, messageBody.zielbenutzername)
+						== 0) {
+					sendSocketFD = connectionInfo[j].socketFD;
+					break;
+				}
+			}
+			if (sendSocketFD > 0) {
+				result = send(sendSocketFD, (void*) &commonHeader,
+						sizeof(commonHeader), 0);
+				if (result == -1) {
+					printf(
+							"ERROR on send(): Unable to send MessageHeader Info\n");
+				}
+				result = send(sendSocketFD, (void*) &messageBody,
+						sizeof(messageBody), 0);
+				if (result == -1) {
+					printf("ERROR on send(): Unable to send Message Info\n");
+				}
+			}
+		}
+
+	}
+}
+
+void createHeader(struct CommonHeader* commonHeader, uint8_t type, uint8_t flag,
+		uint8_t version, uint8_t lenght) {
+	memset(commonHeader, 0, sizeof(commonHeader));
+	commonHeader->type = type;
+	commonHeader->flag = flag;
+	commonHeader->version = version;
+	commonHeader->lenght = lenght;
 }

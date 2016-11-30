@@ -18,6 +18,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
+#include <stdbool.h>
 
 #define PORT 9012
 #define IP "127.0.0.1"
@@ -81,10 +82,12 @@ enum flag {
 
 struct ConnectionInfo{
 	char name[NAME_SIZE];
-	struct sockaddr_in;
+	int socketFD;
+	int hops;
 };
 
 void* Server(void*);
-void connectionHandling(void);
-
+void newConnection(void);
+void receiveMessage(int);
+void createHeader(struct CommonHeader*,uint8_t,uint8_t,uint8_t,uint8_t);
 #endif /* SERVER_H_ */
