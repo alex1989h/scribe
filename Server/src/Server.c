@@ -188,7 +188,8 @@ void receiveMessage(int tempSocketFD) {
 				body.tabelle[tabelleSize].hops = 1;
 				tabelleSize++;
 				connectionInfoSize++;
-				sendControllInfo(tempSocketFD);
+				//sendControllInfo(tempSocketFD);
+				//TODO:Serverliste Anlegen um Tabelen Austauschen
 			}
 		} else if (commonHeader.flag == (FIN)) {
 			printf("Logout Request\n");
