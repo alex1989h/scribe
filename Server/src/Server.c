@@ -70,7 +70,7 @@ int main(void) {
 				char ipAdresse[20];
 				printf("Geben Si die Ip Addresse ein:\n");
 				fgets(ipAdresse,20,stdin);
-				ipAdresse[strcspn(command,"\n")] = 0;
+				ipAdresse[strcspn(ipAdresse,"\n")] = 0;
 				connectToServer(ipAdresse);
 			}
 		}
@@ -189,6 +189,7 @@ void receiveMessage(int tempSocketFD) {
 				connectionInfoSize++;
 			}
 		} else if (commonHeader.flag == (FIN)) {
+			printf("Logout Request\n");
 			struct LogInOutBody logInOutBody;
 			memset(&logInOutBody, 0, sizeof(logInOutBody));
 			result = recv(tempSocketFD, (void*) &logInOutBody,
@@ -237,6 +238,7 @@ void receiveMessage(int tempSocketFD) {
 		}
 	} else if (commonHeader.type == CONTROL_INFO) {
 		if (commonHeader.flag == GET) {
+			printf("Give me all User Request\n");
 			struct CommonHeader tempHeader;
 			createHeader(&tempHeader, CONTROL_INFO, 0, 1, tabelleSize);
 
@@ -252,9 +254,10 @@ void receiveMessage(int tempSocketFD) {
 						"ERROR on send(): Unable to send Control Info Lcontrol Info\n");
 			}
 		} else {
-
+			//TODO:Tabellen Austauschen
 		}
 	} else if (commonHeader.type == MESSAGE) {
+		printf("Message request\n");
 		struct MessageBody messageBody;
 		memset(&messageBody, 0, sizeof(messageBody));
 
