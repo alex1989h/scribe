@@ -145,7 +145,7 @@ void receiveMessage(int tempSocketFD) {
 				printf("ERROR on recv: Unable to receive LogInOutBody\n");
 			}
 			memset(&tempName, 0, sizeof(tempName));
-			strcpy(&tempName, logInOutBody.benutzername);
+			strcpy(tempName, logInOutBody.benutzername);
 			for (j = 0; j < connectionInfoSize; j++) {
 				if (strcmp(connectionInfo[j].name, tempName) == 0) {
 					nameExist = true;
@@ -181,10 +181,10 @@ void receiveMessage(int tempSocketFD) {
 					printf("Login erfolgreich. Neuer Benutze: %s hinzugefügt\n",
 							tempName);
 				}
-				strcpy(&connectionInfo[connectionInfoSize].name, tempName);
+				strcpy(connectionInfo[connectionInfoSize].name, tempName);
 				connectionInfo[connectionInfoSize].socketFD = tempSocketFD;
 				connectionInfo[connectionInfoSize].hops = 1;
-				strcpy(&body.tabelle[tabelleSize].benutzername, tempName);
+				strcpy(body.tabelle[tabelleSize].benutzername, tempName);
 				body.tabelle[tabelleSize].hops = 1;
 				tabelleSize++;
 				connectionInfoSize++;
@@ -200,7 +200,7 @@ void receiveMessage(int tempSocketFD) {
 			if (result == -1) {
 				printf("ERROR on recv: Unable to receive LogInOutBody\n");
 			} else {
-				strcpy(&tempName, logInOutBody.benutzername);
+				strcpy(tempName, logInOutBody.benutzername);
 				for (j = 0; j < connectionInfoSize; j++) {
 					if (strcmp(connectionInfo[j].name, tempName) == 0) {
 						memset(&connectionInfo[j], 0,
@@ -277,7 +277,7 @@ void receiveMessage(int tempSocketFD) {
 							memcpy(&body.tabelle[tabelleSize],&tempBody.tabelle[i],sizeof(body.tabelle[tabelleSize]));
 							changesOnTabelle = true;
 							tabelleSize++;
-							strcpy(&connectionInfo[connectionInfoSize].name,tempBody.tabelle[i].benutzername);
+							strcpy(connectionInfo[connectionInfoSize].name,tempBody.tabelle[i].benutzername);
 							connectionInfo[connectionInfoSize].socketFD = tempSocketFD;
 							connectionInfo[connectionInfoSize].hops = tempBody.tabelle[i].hops;
 							connectionInfoSize++;
@@ -355,12 +355,12 @@ void connectToServer(char *ipAdresse){
 		} else {
 			FD_SET(serverSocketFD, &activefds);
 			printf("Verbindung Zum Server Erfolgreich\n");
-			sendControllInfo(serverSocketFD);
+			sendControlInfo(serverSocketFD);
 		}
 	}
 }
 
-void sendControllInfo(int tempSocketFD){
+void sendControlInfo(int tempSocketFD){
 	int result;
 	struct CommonHeader commonHeader;
 	createHeader(&commonHeader, CONTROL_INFO, 0, 1, tabelleSize);

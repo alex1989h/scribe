@@ -133,7 +133,7 @@ int logIn(int socketFD, char* name) {
 	logInOut.commonHeader.flag = SYN;
 	logInOut.commonHeader.version = 1;
 	logInOut.commonHeader.lenght = NAME_SIZE;
-	strcpy(&logInOut.LogInOutBody.benutzername, name);
+	strcpy(logInOut.LogInOutBody.benutzername, name);
 
 	ssize_t result = send(socketFD, (void*) &logInOut, sizeof(logInOut), 0);
 	if (result == -1) {
@@ -178,9 +178,9 @@ void sendMessage(char* quelle, char* ziel, char* message){
 	messageStruct.commonHeader.flag = UNDEFINE;
 	messageStruct.commonHeader.version = 1;
 	messageStruct.commonHeader.lenght = 255;
-	strcpy(&messageStruct.messageBody.quellbenutzername,quelle);
-	strcpy(&messageStruct.messageBody.zielbenutzername,ziel);
-	strcpy(&messageStruct.messageBody.nachricht,message);
+	strcpy(messageStruct.messageBody.quellbenutzername,quelle);
+	strcpy(messageStruct.messageBody.zielbenutzername,ziel);
+	strcpy(messageStruct.messageBody.nachricht,message);
 	result = send(socketFD,(void*)&messageStruct,sizeof(messageStruct),0);
 	if(result == -1){
 		printf("ERROR on send():Unable so send the Message");
@@ -194,7 +194,7 @@ void closeProgram(char* username){
 	logInOut.commonHeader.flag = FIN;
 	logInOut.commonHeader.version = 1;
 	logInOut.commonHeader.lenght = NAME_SIZE;
-	strcpy(&logInOut.LogInOutBody.benutzername,username);
+	strcpy(logInOut.LogInOutBody.benutzername,username);
 	ssize_t result = send(socketFD,(void*)&logInOut,sizeof(logInOut),0);
 	if(result == -1){
 		printf("ERROR on send():Unable to logout");
