@@ -41,8 +41,7 @@ void *Client(void* not_used) {
 		if (commonHeader.type == MESSAGE) {
 			struct MessageBody messageBody;
 			memset((void*) &messageBody, 0, sizeof(messageBody));
-			result = recv(socketFD, (void*) &messageBody, sizeof(messageBody),
-					0);
+			result = recv(socketFD, (void*) &messageBody, sizeof(messageBody),0);
 			if (result == -1) {
 				printf("ERROR on recv():Unable to receive Message");
 			} else {
@@ -75,16 +74,35 @@ void *Client(void* not_used) {
 	return NULL;
 }
 
-void logIn(char* name) {
+void logIn(char* tempName) {
 	struct LogInOut logInOut;
 	memset(&logInOut, 0, sizeof(logInOut));
-	logInOut.commonHeader.type = LOG_IN_OUT;
-	logInOut.commonHeader.flag = SYN;
-	logInOut.commonHeader.version = 1;
-	logInOut.commonHeader.lenght = NAME_SIZE;
-	strcpy(logInOut.logInOutBody.benutzername, name);
+	createHeader(&logInOut.commonHeader,LOG_IN_OUT,SYN,1,strlen(tempName));
 
-	ssize_t result = send(socketFD, (void*) &logInOut, sizeof(logInOut), 0);
+	strcpy(logInOut.logInOutBody.benutzername, tempName);
+
+	ssize_t result = send(socketFD, (void*) &logInOut.commonHeader, sizeof(logInOut.commonHeader), 0);
+	if (result == -1) {
+		printf("ERROR on send(): Unable to send LogInOut\n");
+	}
+	result = send(socketFD, (void*) &logInOut.logInOutBody, strlen(tempName), 0);
+	if (result == -1) {
+		printf("ERROR on send(): Unable to send LogInOut\n");
+	}
+}
+
+void logOut(char* tempName){
+	struct LogInOut logInOut;
+	memset(&logInOut, 0, sizeof(logInOut));
+	createHeader(&logInOut.commonHeader, LOG_IN_OUT, FIN, 1, strlen(tempName));
+
+	strcpy(logInOut.logInOutBody.benutzername, tempName);
+
+	ssize_t result = send(socketFD, (void*) &logInOut.commonHeader,sizeof(logInOut.commonHeader), 0);
+	if (result == -1) {
+		printf("ERROR on send(): Unable to send LogInOut\n");
+	}
+	result = send(socketFD, (void*) &logInOut.logInOutBody, strlen(tempName), 0);
 	if (result == -1) {
 		printf("ERROR on send(): Unable to send LogInOut\n");
 	}
@@ -118,20 +136,6 @@ void sendMessage(char* quelle, char* ziel, char* message){
 	result = send(socketFD,(void*)&messageStruct,sizeof(messageStruct),0);
 	if(result == -1){
 		printf("ERROR on send():Unable so send the Message");
-	}
-}
-
-void closeProgram(char* username){
-	struct LogInOut logInOut;
-	memset((void*)&logInOut,0,sizeof(logInOut));
-	logInOut.commonHeader.type = LOG_IN_OUT;
-	logInOut.commonHeader.flag = FIN;
-	logInOut.commonHeader.version = 1;
-	logInOut.commonHeader.lenght = NAME_SIZE;
-	strcpy(logInOut.logInOutBody.benutzername,username);
-	ssize_t result = send(socketFD,(void*)&logInOut,sizeof(logInOut),0);
-	if(result == -1){
-		printf("ERROR on send():Unable to logout");
 	}
 }
 
@@ -180,7 +184,7 @@ void command(){
 		} else if (strcmp(command, "/LOGOUT") == 0) {
 			if (loginSuccess) {
 				printf("Close programm\n");
-				closeProgram(name);
+				logOut(name);
 				exitWileLoop = 1;
 			}
 		} else if (strcmp(command, "/SEND") == 0) {
@@ -205,4 +209,16 @@ void command(){
 			}
 		}
 	}
+}
+
+void createHeader(struct CommonHeader* commonHeader, uint8_t type, uint8_t flag, uint8_t version, uint8_t lenght) {
+	memset((void*)commonHeader, 0, sizeof(commonHeader));
+	commonHeader->type = type;
+	commonHeader->flag = flag;
+	commonHeader->version = version;
+	commonHeader->lenght = lenght;
+}
+
+void receiveMessage(int currentSocketFD){
+
 }

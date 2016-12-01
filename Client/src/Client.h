@@ -81,9 +81,12 @@ enum flag {
 
 void *Client(void*);
 void logIn(char*);
+void logOut(char*);
 void loadInfo(void);
 void closeProgram(char*);
 void sendMessage(char*,char*,char*);
 void connectToServer(char*);
 void command(void);
+void createHeader(struct CommonHeader*,uint8_t,uint8_t,uint8_t,uint8_t);
+void receiveMessage(int);
 #endif /* CLIENT_H_ */

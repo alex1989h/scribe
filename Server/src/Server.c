@@ -20,6 +20,8 @@ struct ConnectionInfo connectionInfo[255];
 struct ControlInfoBody localBody;
 int tabelleSize = 0;
 
+pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
+
 int main(void) {
 	int result;
 	struct sockaddr_in isa;
@@ -115,7 +117,6 @@ void receiveMessage(int currentSocketFD) {
 	int result;
 	bool nameExist = false;
 	bool changesOnTabelle = false;
-	char tempName[15];
 	int j,i;
 	struct CommonHeader receivedHeader;
 	memset(&receivedHeader, 0, sizeof(receivedHeader));
@@ -125,82 +126,9 @@ void receiveMessage(int currentSocketFD) {
 	}
 	if (receivedHeader.type == LOG_IN_OUT) {
 		if (receivedHeader.flag == (SYN)) {
-			printf("Login Request\n");
-			struct LogInOutBody logInOutBody;
-			memset(&logInOutBody, 0, sizeof(logInOutBody));
-			result = recv(currentSocketFD, (void*) &logInOutBody, sizeof(logInOutBody), 0);
-			if (result == -1) {
-				printf("ERROR on recv: Unable to receive LogInOutBody\n");
-			}
-			memset(&tempName, 0, sizeof(tempName));
-			strcpy(tempName, logInOutBody.benutzername);
-			for (j = 0; j < tabelleSize; j++) {
-				if (strcmp(connectionInfo[j].name, tempName) == 0) {
-					nameExist = true;
-					break;
-
-				}
-			}
-			struct LogInOut logInOut;
-			memset(&logInOut, 0, sizeof(logInOut));
-			if (nameExist) {
-				createHeader(&logInOut.commonHeader, LOG_IN_OUT,(DUP | SYN | ACK), 1, 0);
-				result = send(currentSocketFD, (void*) &logInOut, sizeof(logInOut), 0);
-				if (result == -1) {
-					printf("ERROR on send(): Unable to send LogInOut with DUB\n");
-				} else {
-					printf("Login fehlgeschlagen Benutzename: %s bereits vergeben\n",tempName);
-				}
-			} else {
-				createHeader(&logInOut.commonHeader, LOG_IN_OUT, (SYN | ACK), 1, 0);
-				result = send(currentSocketFD, (void*) &logInOut.commonHeader, sizeof(logInOut.commonHeader), 0);
-				if (result == -1) {
-					printf("ERROR on send(): Unable to send LogInOut with ACK\n");
-				} else {
-					printf("Login erfolgreich. Neuer Benutze: %s hinzugefügt\n",tempName);
-				}
-				result = send(currentSocketFD, (void*) &logInOut.logInOutBody,logInOut.commonHeader.lenght, 0);
-				if (result == -1) {
-					printf("ERROR on send(): Unable to send LogInOut with ACK\n");
-				} else {
-					printf("Login erfolgreich. Neuer Benutze: %s hinzugefügt\n",tempName);
-				}
-				strcpy(connectionInfo[tabelleSize].name, tempName);
-				connectionInfo[tabelleSize].socketFD = currentSocketFD;
-				connectionInfo[tabelleSize].hops = 1;
-				strcpy(localBody.tabelle[tabelleSize].benutzername, tempName);
-				localBody.tabelle[tabelleSize].hops = 1;
-				tabelleSize++;
-
-				notifyAllServers();
-			}
+			logInRequest(currentSocketFD,receivedHeader.lenght);
 		} else if (receivedHeader.flag == (FIN)) {
-			printf("Logout Request\n");
-			struct LogInOutBody logInOutBody;
-			memset(&logInOutBody, 0, sizeof(logInOutBody));
-			result = recv(currentSocketFD, (void*) &logInOutBody, sizeof(logInOutBody), 0);
-			if (result == -1) {
-				printf("ERROR on recv: Unable to receive LogInOutBody\n");
-			} else {
-				strcpy(tempName, logInOutBody.benutzername);
-				for (j = 0; j < tabelleSize; j++) {
-					if (strcmp(connectionInfo[j].name, tempName) == 0) {
-						deleteEntry(j);
-						break;
-					}
-				}
-
-				struct LogInOut logInOut;
-				memset(&logInOut, 0, sizeof(logInOut));
-				createHeader(&logInOut.commonHeader, LOG_IN_OUT, (FIN | ACK), 1, 0);
-				result = send(currentSocketFD, (void*) &logInOut, sizeof(logInOut), 0);
-				if (result == -1) {
-					printf("ERROR on send(): Unable to send LogInOut with DUB\n");
-				} else {
-					FD_CLR(currentSocketFD, &activefds);
-				}
-				notifyAllServers();
-			}
+			logOutRequest(currentSocketFD,receivedHeader.lenght);
 		}
 	} else if (receivedHeader.type == CONTROL_INFO) {
 		if (receivedHeader.flag == GET) {
@@ -309,26 +237,24 @@ void receiveMessage(int currentSocketFD) {
 		}
 
 	} else {
-//		printf("Server oder Client ausgefallen\n");
-//		changesOnTabelle = false;
-//
-//		for (i = 0; i < serverSize; i++) {
-//			serverfds[i] = serverfds[serverSize - 1];
-//			serverfds[serverSize - 1] = 0;
-//			serverSize--;
-//		}
-//
-//		for(i = 0;i<tabelleSize;i++){
-//			if(connectionInfo[i].socketFD == currentSocketFD){
-//				deleteEntry(i);
-//				changesOnTabelle = true;
-//			}
-//		}
-//		if(changesOnTabelle){
-//			notifyAllServers();
-//		}
-//		FD_CLR(currentSocketFD,&activefds);
-//		close(currentSocketFD);
+
+		printf("Server oder Client ausgefallen\n");
+		changesOnTabelle = false;
+//TODO:Kummische Methode
+		deleteServer(currentSocketFD);
+
+		for(i = 0;i<tabelleSize;i++){
+			if(connectionInfo[i].socketFD == currentSocketFD){
+				deleteEntry(i);
+				changesOnTabelle = true;
+			}
+		}
+
+		if(changesOnTabelle){
+			notifyAllServers();
+		}
+		FD_CLR(currentSocketFD,&activefds);
+		close(currentSocketFD);
 	}
 }
 
@@ -365,7 +291,6 @@ void connectToServer(char *ipAdresse){
 			FD_SET(serverSocketFD, &activefds);
 			putNewServer(serverSocketFD);
 			printf("Verbindung Zum Server Erfolgreich\n");
-			//sendControlInfo(serverSocketFD);
 		}
 	}
 }
@@ -421,13 +346,27 @@ void commands(){
 			ipAdresse[strcspn(ipAdresse, "\n")] = 0;
 			connectToServer(ipAdresse);
 		}else if(strcmp(command, "/CLOSE") == 0){
-
 			exit(EXIT_SUCCESS);
 		}
 	}
 }
 
+void deleteServer(int currentSocketFD){
+	pthread_mutex_lock(&mtx);
+	int i;
+	for (i = 0; i < serverSize; i++) {
+		if (serverfds[i] == currentSocketFD) {
+			serverfds[i] = serverfds[serverSize - 1];
+			serverfds[serverSize - 1] = 0;
+			serverSize--;
+			break;
+		}
+	}
+	pthread_mutex_unlock(&mtx);
+}
+
 void putNewServer(int currentSocketFD){
+	pthread_mutex_lock(&mtx);
 	int i;
 	bool serverExist = false;
 	if (serverSize > 0) {
@@ -446,5 +385,96 @@ void putNewServer(int currentSocketFD){
 	} else {
 		serverfds[serverSize] = currentSocketFD;
 		serverSize++;
+	}
+	pthread_mutex_unlock(&mtx);
+}
+
+void logInRequest(int currentSocketFD, int size) {
+	int result;
+	int j;
+	char tempName[15];
+	bool nameExist = false;
+	printf("Login Request\n");
+	struct LogInOutBody logInOutBody;
+	memset(&logInOutBody, 0, sizeof(logInOutBody));
+	result = recv(currentSocketFD, (void*) &logInOutBody, size, 0);
+	if (result == -1) {
+		printf("ERROR on recv: Unable to receive LogInOutBody\n");
+	}
+	memset(&tempName, 0, sizeof(tempName));
+	strcpy(tempName, logInOutBody.benutzername);
+	for (j = 0; j < tabelleSize; j++) {
+		if (strcmp(connectionInfo[j].name, tempName) == 0) {
+			nameExist = true;
+			break;
+
+		}
+	}
+	struct LogInOut logInOut;
+	memset(&logInOut, 0, sizeof(logInOut));
+	if (nameExist) {
+		createHeader(&logInOut.commonHeader, LOG_IN_OUT, (DUP | SYN | ACK), 1,0);
+		result = send(currentSocketFD, (void*) &logInOut, sizeof(logInOut), 0);
+		if (result == -1) {
+			printf("ERROR on send(): Unable to send LogInOut with DUB\n");
+		} else {
+			printf("Login fehlgeschlagen Benutzename: %s bereits vergeben\n",tempName);
+		}
+	} else {
+		createHeader(&logInOut.commonHeader, LOG_IN_OUT, (SYN | ACK), 1, 0);
+		result = send(currentSocketFD, (void*) &logInOut.commonHeader,sizeof(logInOut.commonHeader), 0);
+		if (result == -1) {
+			printf("ERROR on send(): Unable to send LogInOut with ACK\n");
+		} else {
+			printf("Login erfolgreich. Neuer Benutze: %s hinzugefügt\n",tempName);
+		}
+		result = send(currentSocketFD, (void*) &logInOut.logInOutBody,logInOut.commonHeader.lenght, 0);
+		if (result == -1) {
+			printf("ERROR on send(): Unable to send LogInOut with ACK\n");
+		} else {
+			printf("Login erfolgreich. Neuer Benutze: %s hinzugefügt\n",tempName);
+		}
+		strcpy(connectionInfo[tabelleSize].name, tempName);
+		connectionInfo[tabelleSize].socketFD = currentSocketFD;
+		connectionInfo[tabelleSize].hops = 1;
+		strcpy(localBody.tabelle[tabelleSize].benutzername, tempName);
+		localBody.tabelle[tabelleSize].hops = 1;
+		tabelleSize++;
+		notifyAllServers();
+	}
+}
+
+void logOutRequest(int currentSocketFD,int size){
+	int result;
+	int j;
+	char tempName[15];
+	printf("Logout Request\n");
+	struct LogInOutBody logInOutBody;
+	memset(&logInOutBody, 0, sizeof(logInOutBody));
+	result = recv(currentSocketFD, (void*) &logInOutBody, size ,0);
+	if (result == -1) {
+		printf("ERROR on recv: Unable to receive LogInOutBody\n");
+	} else {
+		strcpy(tempName, logInOutBody.benutzername);
+		for (j = 0; j < tabelleSize; j++) {
+			if (strcmp(connectionInfo[j].name, tempName) == 0) {
+				deleteEntry(j);
+				break;
+			}
+		}
+		struct LogInOut logInOut;
+		memset(&logInOut, 0, sizeof(logInOut));
+		createHeader(&logInOut.commonHeader, LOG_IN_OUT, (FIN | ACK), 1, 0);
+		result = send(currentSocketFD, (void*) &logInOut.commonHeader, sizeof(logInOut.commonHeader), 0);
+		if (result == -1) {
+			printf("ERROR on send(): Unable to send LogInOut Header  with DUB\n");
+		}
+		result = send(currentSocketFD, (void*) &logInOut.logInOutBody, 0, 0);
+		if (result == -1) {
+			printf("ERROR on send(): Unable to send LogInOut Body with DUB\n");
+		}
+
+		FD_CLR(currentSocketFD, &activefds);
+		notifyAllServers();
 	}
 }
