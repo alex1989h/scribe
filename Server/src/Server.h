@@ -96,4 +96,5 @@ void sendControlInfo(int);
 void notifyAllServers(void);
 void deleteEntry(int);
 void commands(void);
+void putNewServer(int);
 #endif /* SERVER_H_ */

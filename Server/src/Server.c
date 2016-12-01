@@ -138,6 +138,7 @@ void receiveMessage(int currentSocketFD) {
 				if (strcmp(connectionInfo[j].name, tempName) == 0) {
 					nameExist = true;
 					break;
+
 				}
 			}
 			struct LogInOut logInOut;
@@ -210,7 +211,10 @@ void receiveMessage(int currentSocketFD) {
 				printf("ERROR on send(): Unable to send Control Info Lcontrol Info\n");
 			}
 		} else {
-			printf("ControlInfo erhalten");
+			printf("ControlInfo erhalten\n");
+
+			putNewServer(currentSocketFD);
+
 			//TODO:Tabellen Austauschen
 			struct ControlInfoBody receivedBody;
 			memset(&receivedBody, 0, sizeof(receivedBody));
@@ -307,26 +311,26 @@ void receiveMessage(int currentSocketFD) {
 		}
 
 	} else {
-		printf("Server oder Client ausgefallen\n");
-		changesOnTabelle = false;
-
-		for (i = 0; i < serverSize; i++) {
-			serverfds[i] = serverfds[serverSize - 1];
-			serverfds[serverSize - 1] = 0;
-			serverSize--;
-		}
-
-		for(i = 0;i<tabelleSize;i++){
-			if(connectionInfo[i].socketFD == currentSocketFD){
-				deleteEntry(i);
-				changesOnTabelle = true;
-			}
-		}
-		if(changesOnTabelle){
-			notifyAllServers();
-		}
-		FD_CLR(currentSocketFD,&activefds);
-		close(currentSocketFD);
+//		printf("Server oder Client ausgefallen\n");
+//		changesOnTabelle = false;
+//
+//		for (i = 0; i < serverSize; i++) {
+//			serverfds[i] = serverfds[serverSize - 1];
+//			serverfds[serverSize - 1] = 0;
+//			serverSize--;
+//		}
+//
+//		for(i = 0;i<tabelleSize;i++){
+//			if(connectionInfo[i].socketFD == currentSocketFD){
+//				deleteEntry(i);
+//				changesOnTabelle = true;
+//			}
+//		}
+//		if(changesOnTabelle){
+//			notifyAllServers();
+//		}
+//		FD_CLR(currentSocketFD,&activefds);
+//		close(currentSocketFD);
 	}
 }
 
@@ -419,5 +423,25 @@ void commands(){
 
 			exit(EXIT_SUCCESS);
 		}
+	}
+}
+
+void putNewServer(int currentSocketFD){
+	int i;
+	bool serverExist = false;
+	if (serverSize > 0) {
+		for (i = 0; i < serverSize; i++) {
+			if (serverfds[i] == currentSocketFD) {
+				serverExist = true;
+				break;
+			}
+		}
+		if (!serverExist) {
+			serverfds[serverSize] = currentSocketFD;
+			serverSize++;
+		}
+	} else {
+		serverfds[serverSize] = currentSocketFD;
+		serverSize++;
 	}
 }
