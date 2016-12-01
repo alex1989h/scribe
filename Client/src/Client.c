@@ -39,14 +39,7 @@ void *Client(void* not_used) {
 			printf("ERROR on recv: Unable to receive Commonheader\n");
 		}
 		if (commonHeader.type == MESSAGE) {
-			struct MessageBody messageBody;
-			memset((void*) &messageBody, 0, sizeof(messageBody));
-			result = recv(socketFD, (void*) &messageBody, sizeof(messageBody),0);
-			if (result == -1) {
-				printf("ERROR on recv():Unable to receive Message");
-			} else {
-				printf("(%s -> %s)\n Message:%s\n",messageBody.quellbenutzername, messageBody.zielbenutzername, messageBody.nachricht);
-			}
+			receiveMessage(commonHeader.lenght);
 		}else if (commonHeader.type == CONTROL_INFO) {
 			struct ControlInfoBody controlInfoBody;
 			memset((void*) &controlInfoBody, 0, sizeof(controlInfoBody));
@@ -126,15 +119,30 @@ void sendMessage(char* quelle, char* ziel, char* message){
 	ssize_t result;
 	struct Message messageStruct;
 	memset((void*)&messageStruct,0,sizeof(messageStruct));
-	messageStruct.commonHeader.type = MESSAGE;
-	messageStruct.commonHeader.flag = UNDEFINE;
-	messageStruct.commonHeader.version = 1;
-	messageStruct.commonHeader.lenght = 255;
+	createHeader(&messageStruct.commonHeader,MESSAGE,0,1,strlen(message));
+
+
 	strcpy(messageStruct.messageBody.quellbenutzername,quelle);
 	strcpy(messageStruct.messageBody.zielbenutzername,ziel);
 	strcpy(messageStruct.messageBody.nachricht,message);
-	result = send(socketFD,(void*)&messageStruct,sizeof(messageStruct),0);
-	if(result == -1){
+
+	result = send(socketFD, (void*) &messageStruct.commonHeader,sizeof(messageStruct.commonHeader), 0);
+	if (result == -1) {
+		printf("ERROR on send():Unable so send the Message");
+	}
+
+	result = send(socketFD,(void*) &messageStruct.messageBody.quellbenutzername, 16, 0);
+	if (result == -1) {
+		printf("ERROR on send():Unable so send the Message");
+	}
+
+	result = send(socketFD, (void*) &messageStruct.messageBody.zielbenutzername, 16, 0);
+	if (result == -1) {
+		printf("ERROR on send():Unable so send the Message");
+	}
+
+	result = send(socketFD, (void*) &messageStruct.messageBody.nachricht, strlen(message), 0);
+	if (result == -1) {
 		printf("ERROR on send():Unable so send the Message");
 	}
 }
@@ -219,6 +227,22 @@ void createHeader(struct CommonHeader* commonHeader, uint8_t type, uint8_t flag,
 	commonHeader->lenght = lenght;
 }
 
-void receiveMessage(int currentSocketFD){
+void receiveMessage(int size){
+	int result;
+	struct MessageBody messageBody;
+	memset((void*) &messageBody, 0, sizeof(messageBody));
 
+	result = recv(socketFD, (void*) &messageBody.quellbenutzername, 16, 0);
+	if (result == -1) {
+		printf("ERROR on recv():Unable to receive Message Quell Namen");
+	}
+	result = recv(socketFD, (void*) &messageBody.zielbenutzername, 16, 0);
+	if (result == -1) {
+		printf("ERROR on recv():Unable to receive Message Ziel Namen");
+	}
+	result = recv(socketFD, (void*) &messageBody.nachricht, size, 0);
+	if (result == -1) {
+		printf("ERROR on recv():Unable to receive Message Nachricht");
+	}
+	printf("(%s -> %s)\n Message:%s\n", messageBody.quellbenutzername,messageBody.zielbenutzername, messageBody.nachricht);
 }
