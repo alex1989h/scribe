@@ -10,7 +10,8 @@
 
 #include "Server.h"
 
-int socketFD;
+int baseSocketFD;
+int localSocketFD;
 fd_set activefds, readfds;
 
 int serverfds[100];
@@ -27,33 +28,33 @@ int main(void) {
 	struct sockaddr_in isa;
 	memset((void *) &localBody, 0, sizeof(localBody));
 	FD_ZERO(&activefds);
-	socketFD = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (socketFD < 0) {
+	baseSocketFD = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (baseSocketFD < 0) {
 		perror("socket");
 		printf("ERROR on socket(): Erstellung eines Sockets fehlgeschlagen.\n");
 		exit(EXIT_FAILURE);
 	}
-	FD_SET(socketFD, &activefds);
+	FD_SET(baseSocketFD, &activefds);
 	memset((void *) &isa, 0, sizeof(isa));
 
 	isa.sin_port = htons(PORT);
 
 	int yes = 1;
-	result = setsockopt(socketFD, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+	result = setsockopt(baseSocketFD, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 	if (result == -1) {
 		perror("setsockopt");
 		printf("ERROR on setsockopt: Bind funktioniert nicht.\n");
 		exit(EXIT_FAILURE);
 	}
 
-	result = bind(socketFD, (struct sockaddr *) &isa, sizeof(isa));
+	result = bind(baseSocketFD, (struct sockaddr *) &isa, sizeof(isa));
 	if (result < 0) {
 		perror("bind");
 		printf("ERROR on bind: Bind funktioniert nicht.\n");
 		exit(EXIT_FAILURE);
 	}
 
-	result = listen(socketFD, 7);
+	result = listen(baseSocketFD, 7);
 
 	if (result < 0) {
 		perror("listen");
@@ -63,6 +64,7 @@ int main(void) {
 
 	pthread_t serverId;
 	pthread_create(&serverId, NULL, Server, NULL);
+	connectToMyself();
 	commands();
 	pthread_join(serverId, NULL);
 	return EXIT_SUCCESS;
@@ -78,7 +80,7 @@ void* Server(void* not_used) {
 		}
 		for (i = 0; i < FD_SETSIZE; i++) {
 			if (FD_ISSET(i, &readfds)) {
-				if (i == socketFD) {
+				if (i == baseSocketFD) {
 					newConnection();
 					break;
 				} else {
@@ -93,17 +95,14 @@ void* Server(void* not_used) {
 
 void newConnection() {
 	struct sockaddr_in tempIsa;
-
 	memset((void*) &tempIsa, 0, sizeof(tempIsa));
 	unsigned int tempIsaSize = sizeof(tempIsa);
 
-	int connectionFD = accept(socketFD, (struct sockaddr *) &tempIsa,
-			&tempIsaSize);
+	int connectionFD = accept(baseSocketFD, (struct sockaddr *) &tempIsa, &tempIsaSize);
 
 	if (connectionFD < 0) {
 		perror("accept");
-		printf(
-				"ERROR on accept: Es konnte keine Verbindung aufgebaut werden.\n");
+		printf("ERROR on accept: Es konnte keine Verbindung aufgebaut werden.\n");
 	} else {
 		FD_SET(connectionFD, &activefds);
 		printf("Accept successful!\n");
@@ -116,8 +115,7 @@ void receivePackages(int currentSocketFD) {
 	int result;
 	struct CommonHeader receivedHeader;
 	memset(&receivedHeader, 0, sizeof(receivedHeader));
-	result = recv(currentSocketFD, (void*) &receivedHeader,
-			sizeof(receivedHeader), 0);
+	result = recv(currentSocketFD, (void*) &receivedHeader,sizeof(receivedHeader), 0);
 
 	if (result == -1) {
 		printf("ERROR on recv: Unable to receive Commonheader\n");
@@ -139,6 +137,8 @@ void receivePackages(int currentSocketFD) {
 			}
 		} else if (receivedHeader.type == MESSAGE) {
 			passMessage(currentSocketFD, receivedHeader.lenght);
+		} else if (receivedHeader.type == CONNECT){
+			printf("Verbindung zum anderem Server\n");
 		} else {
 			printf("Unbekannter Header Typ\n");
 		}
@@ -157,7 +157,7 @@ void connectToServer(char *ipAdresse){
 	int result;
 	struct sockaddr_in isa;
 	int serverSocketFD = socket(AF_INET, SOCK_STREAM, 0);
-	if (socketFD == -1) {
+	if (serverSocketFD == -1) {
 		printf("ERROR on socket(): Erstellung des Sockets fehlgeschlagen\n");
 	}
 	memset(&isa, 0, sizeof(isa));
@@ -176,8 +176,12 @@ void connectToServer(char *ipAdresse){
 			close(serverSocketFD);
 		} else {
 			FD_SET(serverSocketFD, &activefds);
+			struct CommonHeader header;
+			memset(&header, 0, sizeof(header));
+			createHeader(&header,CONNECT,0,1,sizeof(int));
 			putNewServer(serverSocketFD);
-			sendControlInfo(serverSocketFD,GET, 0);
+			send(localSocketFD,(void*) &header, sizeof(header), 0);
+			sendControlInfo(serverSocketFD, GET, 0);
 			printf("Verbindung Zum Server Erfolgreich\n");
 		}
 	}
@@ -448,7 +452,7 @@ void getControlInfo(int currentSocketFD, int size){
 				changesOnTabelle = true;
 			}
 		}
-
+		//TODO: ERlöscht den eintrag wieder
 		for (i = 0; i < tabelleSize; i++) {
 			if (connectionInfo[i].socketFD == currentSocketFD) {
 				nameExist = false;
@@ -488,4 +492,39 @@ void verbindungTrennen(int currentSocketFD){
 	}
 	FD_CLR(currentSocketFD, &activefds);
 	close(currentSocketFD);
+}
+
+void incomingConnection(){
+
+}
+
+void outgoingConnection(){
+
+}
+
+void connectToMyself(){
+	int result = 0;
+	struct sockaddr_in isa;
+	localSocketFD = socket(AF_INET, SOCK_STREAM, 0);
+	if (localSocketFD == -1) {
+		printf("ERROR on socket(): Erstellung des Sockets fehlgeschlagen\n");
+	}
+	memset(&isa, 0, sizeof(isa));
+	isa.sin_family = AF_INET;
+	isa.sin_port = htons(PORT);
+	result = inet_pton(AF_INET, IP, &isa.sin_addr);
+	if (result == 0) {
+		printf("ERROR on inet_pton():  Not valid network address\n");
+	} else if (result == -1) {
+		printf("ERROR on inet_pton(): Not valid address family\n");
+	}
+	result = connect(localSocketFD, (struct sockaddr *) &isa, sizeof(isa));
+	if (result == -1) {
+		perror("connect");
+		printf("ERROR on connect(): Verbindung fehlgeschlagen\n");
+		close(localSocketFD);
+		exit(EXIT_FAILURE);
+	} else {
+		printf("Verbindung zum sich selber hergestellt\n");
+	}
 }

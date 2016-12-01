@@ -10,7 +10,7 @@
 
 #include "Client.h"
 
-int socketFD;
+int baseSocketFD;
 int loginSuccess = 0;
 char name[NAME_SIZE];
 
@@ -34,7 +34,7 @@ void *Client(void* not_used) {
 	while (1) {
 		struct CommonHeader commonHeader;
 		memset(&commonHeader, 0, sizeof(commonHeader));
-		result = recv(socketFD, (void*) &commonHeader, sizeof(commonHeader), 0);
+		result = recv(baseSocketFD, (void*) &commonHeader, sizeof(commonHeader), 0);
 		if (result == -1) {
 			printf("ERROR on recv: Unable to receive Commonheader\n");
 		}
@@ -43,7 +43,7 @@ void *Client(void* not_used) {
 		}else if (commonHeader.type == CONTROL_INFO) {
 			struct ControlInfoBody controlInfoBody;
 			memset((void*) &controlInfoBody, 0, sizeof(controlInfoBody));
-			result = recv(socketFD, (void*) &controlInfoBody, 20*commonHeader.lenght, 0);//BYTE
+			result = recv(baseSocketFD, (void*) &controlInfoBody, 20*commonHeader.lenght, 0);//BYTE
 			if (result == -1) {
 				printf("ERROR on recv():Unable to receive Tabele namen");
 			} else {
@@ -74,11 +74,11 @@ void logIn(char* tempName) {
 
 	strcpy(logInOut.logInOutBody.benutzername, tempName);
 
-	ssize_t result = send(socketFD, (void*) &logInOut.commonHeader, sizeof(logInOut.commonHeader), 0);
+	ssize_t result = send(baseSocketFD, (void*) &logInOut.commonHeader, sizeof(logInOut.commonHeader), 0);
 	if (result == -1) {
 		printf("ERROR on send(): Unable to send LogInOut\n");
 	}
-	result = send(socketFD, (void*) &logInOut.logInOutBody, strlen(tempName), 0);
+	result = send(baseSocketFD, (void*) &logInOut.logInOutBody, strlen(tempName), 0);
 	if (result == -1) {
 		printf("ERROR on send(): Unable to send LogInOut\n");
 	}
@@ -91,11 +91,11 @@ void logOut(char* tempName){
 
 	strcpy(logInOut.logInOutBody.benutzername, tempName);
 
-	ssize_t result = send(socketFD, (void*) &logInOut.commonHeader,sizeof(logInOut.commonHeader), 0);
+	ssize_t result = send(baseSocketFD, (void*) &logInOut.commonHeader,sizeof(logInOut.commonHeader), 0);
 	if (result == -1) {
 		printf("ERROR on send(): Unable to send LogInOut\n");
 	}
-	result = send(socketFD, (void*) &logInOut.logInOutBody, strlen(tempName), 0);
+	result = send(baseSocketFD, (void*) &logInOut.logInOutBody, strlen(tempName), 0);
 	if (result == -1) {
 		printf("ERROR on send(): Unable to send LogInOut\n");
 	}
@@ -109,7 +109,7 @@ void loadInfo(){
 	commonHeader.flag = GET;
 	commonHeader.version = 1;
 	commonHeader.lenght = 0;
-	result = send(socketFD,(void*)&commonHeader,sizeof(commonHeader),0);
+	result = send(baseSocketFD,(void*)&commonHeader,sizeof(commonHeader),0);
 	if(result == -1){
 		printf("ERROR on send():Unable to send GET");
 	}
@@ -126,22 +126,22 @@ void sendMessage(char* quelle, char* ziel, char* message){
 	strcpy(messageStruct.messageBody.zielbenutzername,ziel);
 	strcpy(messageStruct.messageBody.nachricht,message);
 
-	result = send(socketFD, (void*) &messageStruct.commonHeader,sizeof(messageStruct.commonHeader), 0);
+	result = send(baseSocketFD, (void*) &messageStruct.commonHeader,sizeof(messageStruct.commonHeader), 0);
 	if (result == -1) {
 		printf("ERROR on send():Unable so send the Message");
 	}
 
-	result = send(socketFD,(void*) &messageStruct.messageBody.quellbenutzername, 16, 0);
+	result = send(baseSocketFD,(void*) &messageStruct.messageBody.quellbenutzername, 16, 0);
 	if (result == -1) {
 		printf("ERROR on send():Unable so send the Message");
 	}
 
-	result = send(socketFD, (void*) &messageStruct.messageBody.zielbenutzername, 16, 0);
+	result = send(baseSocketFD, (void*) &messageStruct.messageBody.zielbenutzername, 16, 0);
 	if (result == -1) {
 		printf("ERROR on send():Unable so send the Message");
 	}
 
-	result = send(socketFD, (void*) &messageStruct.messageBody.nachricht, strlen(message), 0);
+	result = send(baseSocketFD, (void*) &messageStruct.messageBody.nachricht, strlen(message), 0);
 	if (result == -1) {
 		printf("ERROR on send():Unable so send the Message");
 	}
@@ -150,8 +150,8 @@ void sendMessage(char* quelle, char* ziel, char* message){
 void connectToServer(char* ipAdresse){
 	int result = 0;
 	struct sockaddr_in isa;
-		socketFD = socket(AF_INET, SOCK_STREAM, 0);
-		if (socketFD == -1) {
+		baseSocketFD = socket(AF_INET, SOCK_STREAM, 0);
+		if (baseSocketFD == -1) {
 			printf("ERROR on socket(): Erstellung des Sockets fehlgeschlagen\n");
 		}
 		memset(&isa, 0, sizeof(isa));
@@ -163,12 +163,12 @@ void connectToServer(char* ipAdresse){
 		} else if (result == -1) {
 			printf("ERROR on inet_pton(): Not valid address family\n");
 		}
-		result = connect(socketFD, (struct sockaddr *) &isa, sizeof(isa));
+		result = connect(baseSocketFD, (struct sockaddr *) &isa, sizeof(isa));
 
 		if (result == -1) {
 			perror("connect");
 			printf("ERROR on connect(): Verbindung fehlgeschlagen\n");
-			close(socketFD);
+			close(baseSocketFD);
 			exit(EXIT_FAILURE);
 
 		}else{
@@ -232,15 +232,15 @@ void receiveMessage(int size){
 	struct MessageBody messageBody;
 	memset((void*) &messageBody, 0, sizeof(messageBody));
 
-	result = recv(socketFD, (void*) &messageBody.quellbenutzername, 16, 0);
+	result = recv(baseSocketFD, (void*) &messageBody.quellbenutzername, 16, 0);
 	if (result == -1) {
 		printf("ERROR on recv():Unable to receive Message Quell Namen");
 	}
-	result = recv(socketFD, (void*) &messageBody.zielbenutzername, 16, 0);
+	result = recv(baseSocketFD, (void*) &messageBody.zielbenutzername, 16, 0);
 	if (result == -1) {
 		printf("ERROR on recv():Unable to receive Message Ziel Namen");
 	}
-	result = recv(socketFD, (void*) &messageBody.nachricht, size, 0);
+	result = recv(baseSocketFD, (void*) &messageBody.nachricht, size, 0);
 	if (result == -1) {
 		printf("ERROR on recv():Unable to receive Message Nachricht");
 	}

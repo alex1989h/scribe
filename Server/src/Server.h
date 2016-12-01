@@ -69,7 +69,8 @@ struct Message {
 enum typ {
 	LOG_IN_OUT = 1,
 	CONTROL_INFO = 2,
-	MESSAGE = 3
+	MESSAGE = 3,
+	CONNECT = 42
 };
 //FLAGS
 enum flag {
@@ -104,4 +105,7 @@ void logOutRequest(int,int);
 int sucheSocketFD(char*);
 void getControlInfo(int,int);
 void verbindungTrennen(int);
+void incomingConnection(void);
+void outgoingConnection(void);
+void connectToMyself(void);
 #endif /* SERVER_H_ */
