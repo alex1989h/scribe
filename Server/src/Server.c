@@ -457,7 +457,7 @@ void getControlInfo(int currentSocketFD, int size){
 			if (connectionInfo[i].socketFD == currentSocketFD) {
 				nameExist = false;
 				for (j = 0; j < size; j++) {
-					if(strcmp(receivedBody.tabelle[j].benutzername, connectionInfo[j].name) == 0){
+					if(strcmp(receivedBody.tabelle[j].benutzername, connectionInfo[i].name) == 0){
 						nameExist = true;
 						break;
 					}
