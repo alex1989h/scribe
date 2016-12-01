@@ -11,70 +11,20 @@
 #include "Client.h"
 
 int socketFD;
+int loginSuccess = 0;
+char name[NAME_SIZE];
 
 int main(void) {
-	int exitWileLoop = 0;
-	int result;
-	struct sockaddr_in isa;
-	socketFD = socket(AF_INET, SOCK_STREAM, 0);
-	if (socketFD == -1) {
-		printf("ERROR on socket(): Erstellung des Sockets fehlgeschlagen\n");
-	}
-	memset(&isa, 0, sizeof(isa));
-	isa.sin_family = AF_INET;
-	isa.sin_port = htons(PORT);
-	result = inet_pton(AF_INET, IP, &isa.sin_addr);
-	if (result == 0) {
-		printf("ERROR on inet_pton():  Not valid network address\n");
-	} else if (result == -1) {
-		printf("ERROR on inet_pton(): Not valid address family\n");
-	}
-	result = connect(socketFD, (struct sockaddr *) &isa, sizeof(isa));
-	if (result == -1) {
-		perror("connect");
-		printf("ERROR on connect(): Verbindung fehlgeschlagen\n");
-		close(socketFD);
-		exit(EXIT_FAILURE);
-	}else{
-		printf("Verbindung erfolgreich\n");
-	}
-	char name[NAME_SIZE];
-	do {
-		printf("Geben sie ihnen Benutzernamen ein: \n");
-		fgets(name, NAME_SIZE, stdin);
-		name[strcspn(name, "\n")] = 0;
-		result = logIn(socketFD, name);
-		if (result == -1) {
-			printf("Name bereits vergeben \n");
-		}
-	} while (result < 0);
+
+	char ipAdresse[20];
+	printf("Mit welchem Server wollt ihr euch verbinden\nGeben sie die Ip Addresse ein:\n");
+	fgets(ipAdresse, NAME_SIZE, stdin);
+	ipAdresse[strcspn(ipAdresse, "\n")] = 0;
+	connectToServer(ipAdresse);
+
 	pthread_t clientId;
 	pthread_create(&clientId, NULL, Client, NULL);
-	char command[20];
-	while (!exitWileLoop) {
-		printf("Geben sie ein Befehle ein:\n");
-		fgets(command,20,stdin);
-		command[strcspn(command,"\n")] = 0;
-		if(strcmp(command,"/INFO")==0){
-			printf("Load info\n");
-			loadInfo();
-		}else if(strcmp(command,"/CLOSE")==0){
-			printf("Close programm\n");
-			closeProgram(name);
-			exitWileLoop = 1;
-		}else if(strcmp(command,"/SEND") == 0){
-			printf("Send Message\n");
-			char message[255];
-			char ziel[NAME_SIZE];
-			printf("Gebe Zielnamen ein:\n");
-			fgets(ziel,NAME_SIZE,stdin);
-			ziel[strcspn(ziel, "\n")] = 0;
-			printf("Gebe Nachricht ein:\n");
-			fgets(message,255,stdin);
-			message[strcspn(message, "\n")] = 0;
-			sendMessage(name,ziel,message);
-		}
-	}
+	command();
 	pthread_join(clientId, NULL);
 	return EXIT_SUCCESS;
 }
@@ -96,64 +46,48 @@ void *Client(void* not_used) {
 			if (result == -1) {
 				printf("ERROR on recv():Unable to receive Message");
 			} else {
-				printf("(%s -> %s)\n Message:%s\n",
-						messageBody.quellbenutzername,
-						messageBody.zielbenutzername, messageBody.nachricht);
+				printf("(%s -> %s)\n Message:%s\n",messageBody.quellbenutzername, messageBody.zielbenutzername, messageBody.nachricht);
 			}
-		}
-		if (commonHeader.type == CONTROL_INFO) {
+		}else if (commonHeader.type == CONTROL_INFO) {
 			struct ControlInfoBody controlInfoBody;
 			memset((void*) &controlInfoBody, 0, sizeof(controlInfoBody));
-			result = recv(socketFD, (void*) &controlInfoBody,
-					sizeof(controlInfoBody), 0);
+			result = recv(socketFD, (void*) &controlInfoBody, 20*commonHeader.lenght, 0);//BYTE
 			if (result == -1) {
 				printf("ERROR on recv():Unable to receive Tabele namen");
 			} else {
 				int i = 0;
 				for (i = 0; i < commonHeader.lenght; i++) {
-					printf("%d: Name: %s\n", i,
-							controlInfoBody.tabelle[i].benutzername);
+					printf("%d: Name: %s\n", i,controlInfoBody.tabelle[i].benutzername);
 				}
 			}
-		}
-		if (commonHeader.type == LOG_IN_OUT) {
+		}else if (commonHeader.type == LOG_IN_OUT) {
 			if (commonHeader.flag == (FIN | ACK)) {
-				printf("Logout\n");
+				printf("Logout erfolgreich\n");
 				exit(EXIT_SUCCESS);
+			}else if (commonHeader.flag == (SYN | ACK)) {
+				printf("Login erfolgreich\n");
+				loginSuccess = 1;
+			}else if(commonHeader.flag == (DUP | SYN | ACK)){
+				printf("Login fehlgeschlagen: Name bereits vergeben \n");
 			}
 		}
 	}
 	return NULL;
 }
 
-int logIn(int socketFD, char* name) {
+void logIn(char* name) {
 	struct LogInOut logInOut;
 	memset(&logInOut, 0, sizeof(logInOut));
 	logInOut.commonHeader.type = LOG_IN_OUT;
 	logInOut.commonHeader.flag = SYN;
 	logInOut.commonHeader.version = 1;
 	logInOut.commonHeader.lenght = NAME_SIZE;
-	strcpy(logInOut.LogInOutBody.benutzername, name);
+	strcpy(logInOut.logInOutBody.benutzername, name);
 
 	ssize_t result = send(socketFD, (void*) &logInOut, sizeof(logInOut), 0);
 	if (result == -1) {
 		printf("ERROR on send(): Unable to send LogInOut\n");
 	}
-	memset(&logInOut, 0, sizeof(logInOut));
-	result = recv(socketFD, (void*) &logInOut, sizeof(logInOut), 0);
-	if (result == -1) {
-		printf("ERROR on recv(): Unable to receive LogInOut\n");
-	}
-
-	if (logInOut.commonHeader.flag == (DUP | SYN | ACK)) {
-		return -1;
-	}
-
-	if (logInOut.commonHeader.flag == (SYN | ACK)) {
-		return 0;
-	}
-
-	return -2;
 }
 
 void loadInfo(){
@@ -194,9 +128,81 @@ void closeProgram(char* username){
 	logInOut.commonHeader.flag = FIN;
 	logInOut.commonHeader.version = 1;
 	logInOut.commonHeader.lenght = NAME_SIZE;
-	strcpy(logInOut.LogInOutBody.benutzername,username);
+	strcpy(logInOut.logInOutBody.benutzername,username);
 	ssize_t result = send(socketFD,(void*)&logInOut,sizeof(logInOut),0);
 	if(result == -1){
 		printf("ERROR on send():Unable to logout");
+	}
+}
+
+void connectToServer(char* ipAdresse){
+	int result = 0;
+	struct sockaddr_in isa;
+		socketFD = socket(AF_INET, SOCK_STREAM, 0);
+		if (socketFD == -1) {
+			printf("ERROR on socket(): Erstellung des Sockets fehlgeschlagen\n");
+		}
+		memset(&isa, 0, sizeof(isa));
+		isa.sin_family = AF_INET;
+		isa.sin_port = htons(PORT);
+		result = inet_pton(AF_INET, ipAdresse, &isa.sin_addr);
+		if (result == 0) {
+			printf("ERROR on inet_pton():  Not valid network address\n");
+		} else if (result == -1) {
+			printf("ERROR on inet_pton(): Not valid address family\n");
+		}
+		result = connect(socketFD, (struct sockaddr *) &isa, sizeof(isa));
+
+		if (result == -1) {
+			perror("connect");
+			printf("ERROR on connect(): Verbindung fehlgeschlagen\n");
+			close(socketFD);
+			exit(EXIT_FAILURE);
+
+		}else{
+			printf("Verbindung zum Server hergestellt\n");
+		}
+}
+
+void command(){
+	int exitWileLoop = 0;
+	char command[20];
+	while (!exitWileLoop) {
+		printf("Geben sie ein Befehle ein:\n");
+
+		fgets(command, 20, stdin);
+		command[strcspn(command, "\n")] = 0;
+		if (strcmp(command, "/INFO") == 0) {
+			if (loginSuccess) {
+				printf("Load info\n");
+				loadInfo();
+			}
+		} else if (strcmp(command, "/LOGOUT") == 0) {
+			if (loginSuccess) {
+				printf("Close programm\n");
+				closeProgram(name);
+				exitWileLoop = 1;
+			}
+		} else if (strcmp(command, "/SEND") == 0) {
+			if (loginSuccess) {
+				printf("Send Message\n");
+				char message[255];
+				char ziel[NAME_SIZE];
+				printf("Gebe Zielnamen ein:\n");
+				fgets(ziel, NAME_SIZE, stdin);
+				ziel[strcspn(ziel, "\n")] = 0;
+				printf("Gebe Nachricht ein:\n");
+				fgets(message, 255, stdin);
+				message[strcspn(message, "\n")] = 0;
+				sendMessage(name, ziel, message);
+			}
+		} else if (strcmp(command, "/LOGIN") == 0) {
+			if (!loginSuccess) {
+				printf("Geben Sie eine Benutzernamen ein:\n");
+				fgets(name, NAME_SIZE, stdin);
+				name[strcspn(name, "\n")] = 0;
+				logIn(name);
+			}
+		}
 	}
 }

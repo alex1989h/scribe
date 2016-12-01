@@ -38,7 +38,7 @@ struct LogInOutBody {
 
 struct LogInOut {
 	struct CommonHeader commonHeader;
-	struct LogInOutBody LogInOutBody;
+	struct LogInOutBody logInOutBody;
 };
 
 struct Tabelle {
@@ -92,7 +92,7 @@ void newConnection(void);
 void receiveMessage(int);
 void createHeader(struct CommonHeader*,uint8_t,uint8_t,uint8_t,uint8_t);
 void connectToServer(char*);
-void sendControlInfo(int);
+void sendControlInfo(int,uint8_t,int);
 void notifyAllServers(void);
 void deleteEntry(int);
 void commands(void);

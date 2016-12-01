@@ -103,6 +103,7 @@ void newConnection() {
 		printf(
 				"ERROR on accept: Es konnte keine Verbindung aufgebaut werden.\n");
 	} else {
+		sendControlInfo(connectionFD,UNDEFINE,tabelleSize);
 		FD_SET(connectionFD, &activefds);
 		printf("Accept successful!\n");
 		printf("Ip: %s\n", inet_ntoa(tempIsa.sin_addr));
@@ -127,8 +128,7 @@ void receiveMessage(int currentSocketFD) {
 			printf("Login Request\n");
 			struct LogInOutBody logInOutBody;
 			memset(&logInOutBody, 0, sizeof(logInOutBody));
-			result = recv(currentSocketFD, (void*) &logInOutBody,
-					sizeof(logInOutBody), 0);
+			result = recv(currentSocketFD, (void*) &logInOutBody, sizeof(logInOutBody), 0);
 			if (result == -1) {
 				printf("ERROR on recv: Unable to receive LogInOutBody\n");
 			}
@@ -153,7 +153,13 @@ void receiveMessage(int currentSocketFD) {
 				}
 			} else {
 				createHeader(&logInOut.commonHeader, LOG_IN_OUT, (SYN | ACK), 1, 0);
-				result = send(currentSocketFD, (void*) &logInOut, sizeof(logInOut), 0);
+				result = send(currentSocketFD, (void*) &logInOut.commonHeader, sizeof(logInOut.commonHeader), 0);
+				if (result == -1) {
+					printf("ERROR on send(): Unable to send LogInOut with ACK\n");
+				} else {
+					printf("Login erfolgreich. Neuer Benutze: %s hinzugefügt\n",tempName);
+				}
+				result = send(currentSocketFD, (void*) &logInOut.logInOutBody,logInOut.commonHeader.lenght, 0);
 				if (result == -1) {
 					printf("ERROR on send(): Unable to send LogInOut with ACK\n");
 				} else {
@@ -199,17 +205,7 @@ void receiveMessage(int currentSocketFD) {
 	} else if (receivedHeader.type == CONTROL_INFO) {
 		if (receivedHeader.flag == GET) {
 			printf("Give me all User Request\n");
-			struct CommonHeader tempHeader;
-			createHeader(&tempHeader, CONTROL_INFO, 0, 1, tabelleSize);
-
-			result = send(currentSocketFD, (void*) &tempHeader, sizeof(tempHeader), 0);
-			if (result == -1) {
-				printf("ERROR on send(): Unable to send Control Info Lcontrol Info\n");
-			}
-			result = send(currentSocketFD, (void*) &localBody, sizeof(localBody), 0);
-			if (result == -1) {
-				printf("ERROR on send(): Unable to send Control Info Lcontrol Info\n");
-			}
+			sendControlInfo(currentSocketFD,UNDEFINE,tabelleSize);
 		} else {
 			printf("ControlInfo erhalten\n");
 
@@ -225,9 +221,10 @@ void receiveMessage(int currentSocketFD) {
 				changesOnTabelle = false;
 				for (i = 0; i < receivedHeader.lenght; i++) {
 					if (tabelleSize > 0) {
+						//TABBELLE IST NICHT LEER
+
 						for (j = 0; j < tabelleSize; j++) {
-							if (strcmp(receivedBody.tabelle[i].benutzername,
-									localBody.tabelle[j].benutzername) == 0) {
+							if (strcmp(receivedBody.tabelle[i].benutzername,localBody.tabelle[j].benutzername) == 0) {
 								if (receivedBody.tabelle[i].hops + 1 < localBody.tabelle[j].hops) {
 									localBody.tabelle[j].hops = receivedBody.tabelle[i].hops + 1;
 									connectionInfo[j].socketFD = currentSocketFD;
@@ -246,6 +243,7 @@ void receiveMessage(int currentSocketFD) {
 							}
 						}
 					}else{
+						//TABELLE IST LEER
 						memcpy(&localBody.tabelle[tabelleSize],&receivedBody.tabelle[i],sizeof(localBody.tabelle[tabelleSize]));
 						localBody.tabelle[tabelleSize].hops++;
 
@@ -334,8 +332,7 @@ void receiveMessage(int currentSocketFD) {
 	}
 }
 
-void createHeader(struct CommonHeader* commonHeader, uint8_t type, uint8_t flag,
-		uint8_t version, uint8_t lenght) {
+void createHeader(struct CommonHeader* commonHeader, uint8_t type, uint8_t flag, uint8_t version, uint8_t lenght) {
 	memset((void*)commonHeader, 0, sizeof(commonHeader));
 	commonHeader->type = type;
 	commonHeader->flag = flag;
@@ -366,21 +363,25 @@ void connectToServer(char *ipAdresse){
 			close(serverSocketFD);
 		} else {
 			FD_SET(serverSocketFD, &activefds);
+			putNewServer(serverSocketFD);
 			printf("Verbindung Zum Server Erfolgreich\n");
-			sendControlInfo(serverSocketFD);
+			//sendControlInfo(serverSocketFD);
 		}
 	}
 }
 
-void sendControlInfo(int currentSocketFD){
+void sendControlInfo(int currentSocketFD, uint8_t flags, int size){
+
 	int result;
+
 	struct CommonHeader commonHeader;
-	createHeader(&commonHeader, CONTROL_INFO, 0, 1, tabelleSize);
+	createHeader(&commonHeader, CONTROL_INFO, flags, 1 , size);
 	result = send(currentSocketFD, (void*) &commonHeader, sizeof(commonHeader), 0);
 	if (result == -1) {
 		printf("ERROR on send(): Unable to send Control Info Lcontrol Info\n");
 	}
-	result = send(currentSocketFD, (void*) &localBody, sizeof(localBody), 0);
+	result = send(currentSocketFD, (void*) &localBody, 20*size, 0);//20 Byte
+
 	if (result == -1) {
 		printf("ERROR on send(): Unable to send Control Info Lcontrol Info\n");
 	}
@@ -389,8 +390,8 @@ void sendControlInfo(int currentSocketFD){
 void notifyAllServers(){
 	printf("Tabelle hat sich verändert. Sag allen bekannten Servern bescheid\n");
 	int i;
-	for(i=0;i<serverSize;i++){
-		sendControlInfo(serverfds[i]);
+	for(i=0;i < serverSize;i++){
+		sendControlInfo(serverfds[i],UNDEFINE,tabelleSize);
 	}
 }
 
@@ -430,12 +431,14 @@ void putNewServer(int currentSocketFD){
 	int i;
 	bool serverExist = false;
 	if (serverSize > 0) {
+
 		for (i = 0; i < serverSize; i++) {
 			if (serverfds[i] == currentSocketFD) {
 				serverExist = true;
 				break;
 			}
 		}
+
 		if (!serverExist) {
 			serverfds[serverSize] = currentSocketFD;
 			serverSize++;

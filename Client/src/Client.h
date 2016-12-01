@@ -36,7 +36,7 @@ struct LogInOutBody {
 
 struct LogInOut {
 	struct CommonHeader commonHeader;
-	struct LogInOutBody LogInOutBody;
+	struct LogInOutBody logInOutBody;
 };
 
 struct Tabelle {
@@ -80,8 +80,10 @@ enum flag {
 };
 
 void *Client(void*);
-int logIn(int, char*);
+void logIn(char*);
 void loadInfo(void);
 void closeProgram(char*);
 void sendMessage(char*,char*,char*);
+void connectToServer(char*);
+void command(void);
 #endif /* CLIENT_H_ */
