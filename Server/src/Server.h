@@ -102,4 +102,6 @@ void deleteServer(int);
 void logInRequest(int,int);
 void logOutRequest(int,int);
 int sucheSocketFD(char*);
+void getControlInfo(int,int);
+void verbindungTrennen(int);
 #endif /* SERVER_H_ */

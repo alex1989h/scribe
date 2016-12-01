@@ -105,7 +105,6 @@ void newConnection() {
 		printf(
 				"ERROR on accept: Es konnte keine Verbindung aufgebaut werden.\n");
 	} else {
-		sendControlInfo(connectionFD,UNDEFINE,tabelleSize);
 		FD_SET(connectionFD, &activefds);
 		printf("Accept successful!\n");
 		printf("Ip: %s\n", inet_ntoa(tempIsa.sin_addr));
@@ -115,116 +114,34 @@ void newConnection() {
 
 void receivePackages(int currentSocketFD) {
 	int result;
-	bool nameExist = false;
-	bool changesOnTabelle = false;
-	int j,i;
 	struct CommonHeader receivedHeader;
 	memset(&receivedHeader, 0, sizeof(receivedHeader));
-	result = recv(currentSocketFD, (void*) &receivedHeader, sizeof(receivedHeader), 0);
+	result = recv(currentSocketFD, (void*) &receivedHeader,
+			sizeof(receivedHeader), 0);
+
 	if (result == -1) {
 		printf("ERROR on recv: Unable to receive Commonheader\n");
-	}
-	if (receivedHeader.type == LOG_IN_OUT) {
-		if (receivedHeader.flag == (SYN)) {
-			logInRequest(currentSocketFD,receivedHeader.lenght);
-		} else if (receivedHeader.flag == (FIN)) {
-			logOutRequest(currentSocketFD,receivedHeader.lenght);
-		}
-	} else if (receivedHeader.type == CONTROL_INFO) {
-		if (receivedHeader.flag == GET) {
-			printf("Give me all User Request\n");
-			sendControlInfo(currentSocketFD,UNDEFINE,tabelleSize);
-		} else {
-			printf("ControlInfo erhalten\n");
-
-			putNewServer(currentSocketFD);
-
-			//TODO:Tabellen Austauschen
-			struct ControlInfoBody receivedBody;
-			memset(&receivedBody, 0, sizeof(receivedBody));
-			result = recv(currentSocketFD, (void*) &receivedBody,sizeof(receivedBody), 0);
-			if (result == -1) {
-				printf("ERROR on recv: Unable to receive ControlInfobody\n");
-			}else{
-				changesOnTabelle = false;
-				for (i = 0; i < receivedHeader.lenght; i++) {
-					if (tabelleSize > 0) {
-						//TABBELLE IST NICHT LEER
-
-						for (j = 0; j < tabelleSize; j++) {
-							if (strcmp(receivedBody.tabelle[i].benutzername,localBody.tabelle[j].benutzername) == 0) {
-								if (receivedBody.tabelle[i].hops + 1 < localBody.tabelle[j].hops) {
-									localBody.tabelle[j].hops = receivedBody.tabelle[i].hops + 1;
-									connectionInfo[j].socketFD = currentSocketFD;
-									connectionInfo[j].hops = receivedBody.tabelle[i].hops + 1;
-									changesOnTabelle = true;
-								}
-							} else {
-								memcpy(&localBody.tabelle[tabelleSize],&receivedBody.tabelle[i],sizeof(localBody.tabelle[tabelleSize]));
-								localBody.tabelle[tabelleSize].hops++;
-
-								strcpy(connectionInfo[tabelleSize].name,receivedBody.tabelle[i].benutzername);
-								connectionInfo[tabelleSize].socketFD =currentSocketFD;
-								connectionInfo[tabelleSize].hops =receivedBody.tabelle[i].hops + 1;
-								tabelleSize++;
-								changesOnTabelle = true;
-							}
-						}
-					}else{
-						//TABELLE IST LEER
-						memcpy(&localBody.tabelle[tabelleSize],&receivedBody.tabelle[i],sizeof(localBody.tabelle[tabelleSize]));
-						localBody.tabelle[tabelleSize].hops++;
-
-						strcpy(connectionInfo[tabelleSize].name,receivedBody.tabelle[i].benutzername);
-						connectionInfo[tabelleSize].socketFD = currentSocketFD;
-						connectionInfo[tabelleSize].hops =receivedBody.tabelle[i].hops + 1;
-						tabelleSize++;
-						changesOnTabelle = true;
-					}
-				}
-
-				for (i = 0; i < tabelleSize; i++) {
-					if (connectionInfo[i].socketFD == currentSocketFD) {
-						nameExist = false;
-						for (j = 0; j < receivedHeader.lenght; j++) {
-							if(strcmp(receivedBody.tabelle[j].benutzername, connectionInfo[j].name) == 0){
-								nameExist = true;
-								break;
-							}
-						}
-						if(!nameExist){
-							deleteEntry(i);
-							changesOnTabelle = true;
-						}
-					}
-				}
-
-				if(changesOnTabelle){
-					notifyAllServers();
-				}
-			}
-		}
-	} else if (receivedHeader.type == MESSAGE) {
-		passMessage(currentSocketFD,receivedHeader.lenght);
+	} else if (result == 0) {
+		verbindungTrennen(currentSocketFD);
 	} else {
-
-		printf("Server oder Client ausgefallen\n");
-		changesOnTabelle = false;
-//TODO:Kummische Methode
-		deleteServer(currentSocketFD);
-
-		for(i = 0;i<tabelleSize;i++){
-			if(connectionInfo[i].socketFD == currentSocketFD){
-				deleteEntry(i);
-				changesOnTabelle = true;
+		if (receivedHeader.type == LOG_IN_OUT) {
+			if (receivedHeader.flag == (SYN)) {
+				logInRequest(currentSocketFD, receivedHeader.lenght);
+			} else if (receivedHeader.flag == (FIN)) {
+				logOutRequest(currentSocketFD, receivedHeader.lenght);
 			}
+		} else if (receivedHeader.type == CONTROL_INFO) {
+			if (receivedHeader.flag == GET) {
+				printf("Give me all User Request\n");
+				sendControlInfo(currentSocketFD, UNDEFINE, tabelleSize);
+			} else {
+				getControlInfo(currentSocketFD, receivedHeader.lenght);
+			}
+		} else if (receivedHeader.type == MESSAGE) {
+			passMessage(currentSocketFD, receivedHeader.lenght);
+		} else {
+			printf("Unbekannter Header Typ\n");
 		}
-
-		if(changesOnTabelle){
-			notifyAllServers();
-		}
-		FD_CLR(currentSocketFD,&activefds);
-		close(currentSocketFD);
 	}
 }
 
@@ -260,6 +177,7 @@ void connectToServer(char *ipAdresse){
 		} else {
 			FD_SET(serverSocketFD, &activefds);
 			putNewServer(serverSocketFD);
+			sendControlInfo(serverSocketFD,GET, 0);
 			printf("Verbindung Zum Server Erfolgreich\n");
 		}
 	}
@@ -401,8 +319,6 @@ void logInRequest(int currentSocketFD, int size) {
 		result = send(currentSocketFD, (void*) &logInOut.logInOutBody,logInOut.commonHeader.lenght, 0);
 		if (result == -1) {
 			printf("ERROR on send(): Unable to send LogInOut with ACK\n");
-		} else {
-			printf("Login erfolgreich. Neuer Benutze: %s hinzugefügt\n",tempName);
 		}
 		strcpy(connectionInfo[tabelleSize].name, tempName);
 		connectionInfo[tabelleSize].socketFD = currentSocketFD;
@@ -480,4 +396,96 @@ int sucheSocketFD(char* ziehlname){
 		}
 	}
 	return 0;
+}
+
+void getControlInfo(int currentSocketFD, int size){
+	int result;
+	int i,j;
+	bool nameExist = false;
+	bool changesOnTabelle = false;
+	printf("ControlInfo erhalten\n");
+	putNewServer(currentSocketFD);
+
+	//TODO:Tabellen Austauschen
+	struct ControlInfoBody receivedBody;
+	memset(&receivedBody, 0, sizeof(receivedBody));
+
+	result = recv(currentSocketFD, (void*) &receivedBody,20*size, 0);
+
+	if (result == -1) {
+		printf("ERROR on recv: Unable to receive ControlInfobody\n");
+	}else{
+
+		for (i = 0; i < size; i++) {
+			if (tabelleSize > 0) {
+				for (j = 0; j < tabelleSize; j++) {
+					if (strcmp(receivedBody.tabelle[i].benutzername,localBody.tabelle[j].benutzername) == 0) {
+						if (receivedBody.tabelle[i].hops + 1 < localBody.tabelle[j].hops) {
+							localBody.tabelle[j].hops = receivedBody.tabelle[i].hops + 1;
+							connectionInfo[j].socketFD = currentSocketFD;
+							connectionInfo[j].hops = receivedBody.tabelle[i].hops + 1;
+							changesOnTabelle = true;
+						}
+					} else {
+						memcpy(&localBody.tabelle[tabelleSize],&receivedBody.tabelle[i],sizeof(localBody.tabelle[tabelleSize]));
+						localBody.tabelle[tabelleSize].hops++;
+
+						strcpy(connectionInfo[tabelleSize].name,receivedBody.tabelle[i].benutzername);
+						connectionInfo[tabelleSize].socketFD =currentSocketFD;
+						connectionInfo[tabelleSize].hops =receivedBody.tabelle[i].hops + 1;
+						tabelleSize++;
+						changesOnTabelle = true;
+					}
+				}
+			}else{
+				memcpy(&localBody.tabelle[tabelleSize],&receivedBody.tabelle[i],sizeof(localBody.tabelle[tabelleSize]));
+				localBody.tabelle[tabelleSize].hops++;
+
+				strcpy(connectionInfo[tabelleSize].name,receivedBody.tabelle[i].benutzername);
+				connectionInfo[tabelleSize].socketFD = currentSocketFD;
+				connectionInfo[tabelleSize].hops =receivedBody.tabelle[i].hops + 1;
+				tabelleSize++;
+				changesOnTabelle = true;
+			}
+		}
+
+		for (i = 0; i < tabelleSize; i++) {
+			if (connectionInfo[i].socketFD == currentSocketFD) {
+				nameExist = false;
+				for (j = 0; j < size; j++) {
+					if(strcmp(receivedBody.tabelle[j].benutzername, connectionInfo[j].name) == 0){
+						nameExist = true;
+						break;
+					}
+				}
+				if(!nameExist){
+					deleteEntry(i);
+					changesOnTabelle = true;
+				}
+			}
+		}
+
+		if(changesOnTabelle){
+			notifyAllServers();
+		}
+	}
+}
+
+void verbindungTrennen(int currentSocketFD){
+	int i;
+	bool changesOnTabelle = false;
+	printf("Server oder Client ausgefallen\n");
+	deleteServer(currentSocketFD);
+	for (i = 0; i < tabelleSize; i++) {
+		if (connectionInfo[i].socketFD == currentSocketFD) {
+			deleteEntry(i);
+			changesOnTabelle = true;
+		}
+	}
+
+	if (changesOnTabelle) {
+		notifyAllServers();
+	}
+	FD_CLR(currentSocketFD, &activefds);
+	close(currentSocketFD);
 }
