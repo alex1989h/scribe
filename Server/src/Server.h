@@ -89,7 +89,8 @@ struct ConnectionInfo{
 
 void* Server(void*);
 void newConnection(void);
-void receiveMessage(int);
+void receivePackages(int);
+void passMessage(int,int);
 void createHeader(struct CommonHeader*,uint8_t,uint8_t,uint8_t,uint8_t);
 void connectToServer(char*);
 void sendControlInfo(int,uint8_t,int);
@@ -100,4 +101,5 @@ void putNewServer(int);
 void deleteServer(int);
 void logInRequest(int,int);
 void logOutRequest(int,int);
+int sucheSocketFD(char*);
 #endif /* SERVER_H_ */

@@ -82,7 +82,7 @@ void* Server(void* not_used) {
 					newConnection();
 					break;
 				} else {
-					receiveMessage(i);
+					receivePackages(i);
 					break;
 				}
 			}
@@ -113,7 +113,7 @@ void newConnection() {
 	}
 }
 
-void receiveMessage(int currentSocketFD) {
+void receivePackages(int currentSocketFD) {
 	int result;
 	bool nameExist = false;
 	bool changesOnTabelle = false;
@@ -205,37 +205,7 @@ void receiveMessage(int currentSocketFD) {
 			}
 		}
 	} else if (receivedHeader.type == MESSAGE) {
-		printf("Message request\n");
-		struct MessageBody messageBody;
-		memset(&messageBody, 0, sizeof(messageBody));
-
-		result = recv(currentSocketFD, (void*) &messageBody, sizeof(messageBody),
-				0);
-		if (result == -1) {
-			printf("ERROR on recv: Nachricht nicht erhalten\n");
-		} else {
-			int sendSocketFD = 0;
-			for (j = 0; j < tabelleSize; j++) {
-				if (strcmp(connectionInfo[j].name, messageBody.zielbenutzername)
-						== 0) {
-					sendSocketFD = connectionInfo[j].socketFD;
-					break;
-				}
-			}
-			if (sendSocketFD > 0) {
-				result = send(sendSocketFD, (void*) &receivedHeader,
-						sizeof(receivedHeader), 0);
-				if (result == -1) {
-					printf(
-							"ERROR on send(): Unable to send MessageHeader Info\n");
-				}
-				result = send(sendSocketFD, (void*) &messageBody,sizeof(messageBody), 0);
-				if (result == -1) {
-					printf("ERROR on send(): Unable to send Message Info\n");
-				}
-			}
-		}
-
+		passMessage(currentSocketFD,receivedHeader.lenght);
 	} else {
 
 		printf("Server oder Client ausgefallen\n");
@@ -477,4 +447,37 @@ void logOutRequest(int currentSocketFD,int size){
 		FD_CLR(currentSocketFD, &activefds);
 		notifyAllServers();
 	}
+}
+
+void passMessage(int currentSocketFD, int size){
+	int result;
+	printf("Message request\n");
+	struct Message message;
+	memset(&message, 0, sizeof(message));
+
+	createHeader(&message.commonHeader,MESSAGE,0,1,size);
+
+	result = recv(currentSocketFD, (void*) &message.messageBody.quellbenutzername, 16,0);
+	result = recv(currentSocketFD, (void*) &message.messageBody.zielbenutzername, 16,0);
+	result = recv(currentSocketFD, (void*) &message.messageBody.nachricht, size,0);
+
+	int sendSockedFD = sucheSocketFD(message.messageBody.zielbenutzername);
+
+	if(sendSockedFD > 0){
+	result = send(sendSockedFD, (void*) &message.commonHeader, sizeof(message.commonHeader),0);
+	result = send(sendSockedFD, (void*) &message.messageBody.quellbenutzername, 16,0);
+	result = send(sendSockedFD, (void*) &message.messageBody.zielbenutzername, 16,0);
+	result = send(sendSockedFD, (void*) &message.messageBody.nachricht, size,0);
+	}
+
+}
+
+int sucheSocketFD(char* ziehlname){
+	int j;
+	for (j = 0; j < tabelleSize; j++) {
+		if (strcmp(connectionInfo[j].name, ziehlname) == 0) {
+			return connectionInfo[j].socketFD;
+		}
+	}
+	return 0;
 }
