@@ -220,24 +220,36 @@ void receiveMessage(int currentSocketFD) {
 			}else{
 				changesOnTabelle = false;
 				for (i = 0; i < receivedHeader.lenght; i++) {
-					for (j = 0; j < tabelleSize; j++) {
-						if(strcmp(receivedBody.tabelle[i].benutzername, localBody.tabelle[j].benutzername) == 0) {
-							if(receivedBody.tabelle[i].hops + 1 < localBody.tabelle[j].hops){
-								localBody.tabelle[j].hops = receivedBody.tabelle[i].hops + 1;
-								connectionInfo[j].socketFD = currentSocketFD;
-								connectionInfo[j].hops = receivedBody.tabelle[i].hops + 1;
+					if (tabelleSize > 0) {
+						for (j = 0; j < tabelleSize; j++) {
+							if (strcmp(receivedBody.tabelle[i].benutzername,
+									localBody.tabelle[j].benutzername) == 0) {
+								if (receivedBody.tabelle[i].hops + 1 < localBody.tabelle[j].hops) {
+									localBody.tabelle[j].hops = receivedBody.tabelle[i].hops + 1;
+									connectionInfo[j].socketFD = currentSocketFD;
+									connectionInfo[j].hops = receivedBody.tabelle[i].hops + 1;
+									changesOnTabelle = true;
+								}
+							} else {
+								memcpy(&localBody.tabelle[tabelleSize],&receivedBody.tabelle[i],sizeof(localBody.tabelle[tabelleSize]));
+								localBody.tabelle[tabelleSize].hops++;
+
+								strcpy(connectionInfo[tabelleSize].name,receivedBody.tabelle[i].benutzername);
+								connectionInfo[tabelleSize].socketFD =currentSocketFD;
+								connectionInfo[tabelleSize].hops =receivedBody.tabelle[i].hops + 1;
+								tabelleSize++;
 								changesOnTabelle = true;
 							}
-						} else {
-							memcpy(&localBody.tabelle[tabelleSize],&receivedBody.tabelle[i],sizeof(localBody.tabelle[tabelleSize]));
-							localBody.tabelle[tabelleSize].hops++;
-
-							strcpy(connectionInfo[tabelleSize].name,receivedBody.tabelle[i].benutzername);
-							connectionInfo[tabelleSize].socketFD = currentSocketFD;
-							connectionInfo[tabelleSize].hops = receivedBody.tabelle[i].hops + 1;
-							tabelleSize++;
-							changesOnTabelle = true;
 						}
+					}else{
+						memcpy(&localBody.tabelle[tabelleSize],&receivedBody.tabelle[i],sizeof(localBody.tabelle[tabelleSize]));
+						localBody.tabelle[tabelleSize].hops++;
+
+						strcpy(connectionInfo[tabelleSize].name,receivedBody.tabelle[i].benutzername);
+						connectionInfo[tabelleSize].socketFD = currentSocketFD;
+						connectionInfo[tabelleSize].hops =receivedBody.tabelle[i].hops + 1;
+						tabelleSize++;
+						changesOnTabelle = true;
 					}
 				}
 
@@ -320,7 +332,7 @@ void receiveMessage(int currentSocketFD) {
 
 void createHeader(struct CommonHeader* commonHeader, uint8_t type, uint8_t flag,
 		uint8_t version, uint8_t lenght) {
-	memset(commonHeader, 0, sizeof(commonHeader));
+	memset((void*)commonHeader, 0, sizeof(commonHeader));
 	commonHeader->type = type;
 	commonHeader->flag = flag;
 	commonHeader->version = version;
