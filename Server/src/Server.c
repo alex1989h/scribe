@@ -238,6 +238,7 @@ void commands(){
 			ipAdresse[strcspn(ipAdresse, "\n")] = 0;
 			connectToServer(ipAdresse);
 		}else if(strcmp(command, "/CLOSE") == 0){
+			close(baseSocketFD);
 			exit(EXIT_SUCCESS);
 		}
 	}
@@ -419,45 +420,38 @@ void getControlInfo(int currentSocketFD, int size){
 	if (result == -1) {
 		printf("ERROR on recv: Unable to receive ControlInfobody\n");
 	}else{
-
-		for (i = 0; i < size; i++) {
-			if (tabelleSize > 0) {
-				for (j = 0; j < tabelleSize; j++) {
-					if (strcmp(receivedBody.tabelle[i].benutzername,localBody.tabelle[j].benutzername) == 0) {
-						if (receivedBody.tabelle[i].hops + 1 < localBody.tabelle[j].hops) {
-							localBody.tabelle[j].hops = receivedBody.tabelle[i].hops + 1;
-							connectionInfo[j].socketFD = currentSocketFD;
-							connectionInfo[j].hops = receivedBody.tabelle[i].hops + 1;
-							changesOnTabelle = true;
-						}
-					} else {
-						memcpy(&localBody.tabelle[tabelleSize],&receivedBody.tabelle[i],sizeof(localBody.tabelle[tabelleSize]));
-						localBody.tabelle[tabelleSize].hops++;
-
-						strcpy(connectionInfo[tabelleSize].name,receivedBody.tabelle[i].benutzername);
-						connectionInfo[tabelleSize].socketFD =currentSocketFD;
-						connectionInfo[tabelleSize].hops =receivedBody.tabelle[i].hops + 1;
-						tabelleSize++;
+		for(i = 0; i < size; i++){
+			nameExist = false;
+			for(j = 0; j < tabelleSize; j++){
+				if(strcmp(receivedBody.tabelle[i].benutzername,localBody.tabelle[j].benutzername) == 0){
+					nameExist = true;
+					if(receivedBody.tabelle[i].hops+1 < localBody.tabelle[j].hops){
+						//Ersetze eintage in der localen Tabelle
+						localBody.tabelle[j].hops = receivedBody.tabelle[i].hops + 1;
+						connectionInfo[j].socketFD = currentSocketFD;
+						connectionInfo[j].hops = receivedBody.tabelle[i].hops + 1;
 						changesOnTabelle = true;
 					}
+					break;
 				}
-			}else{
+			}
+			if(!nameExist){//Name war nicht drin also neuer Eintag
 				memcpy(&localBody.tabelle[tabelleSize],&receivedBody.tabelle[i],sizeof(localBody.tabelle[tabelleSize]));
 				localBody.tabelle[tabelleSize].hops++;
 
 				strcpy(connectionInfo[tabelleSize].name,receivedBody.tabelle[i].benutzername);
 				connectionInfo[tabelleSize].socketFD = currentSocketFD;
-				connectionInfo[tabelleSize].hops =receivedBody.tabelle[i].hops + 1;
+				connectionInfo[tabelleSize].hops = receivedBody.tabelle[i].hops + 1;
 				tabelleSize++;
 				changesOnTabelle = true;
 			}
 		}
-		//TODO: ERlöscht den eintrag wieder
+		//Jetz soll geprüft werden ob irgendwelche schon gespeicherten Client vom anderen Server ausgefallen sind
 		for (i = 0; i < tabelleSize; i++) {
 			if (connectionInfo[i].socketFD == currentSocketFD) {
 				nameExist = false;
-				for (j = 0; j < size; j++) {
-					if(strcmp(receivedBody.tabelle[j].benutzername, connectionInfo[i].name) == 0){
+				for(j = 0; j < size; j++){
+					if(strcmp(connectionInfo[i].name,receivedBody.tabelle[j].benutzername) == 0){
 						nameExist = true;
 						break;
 					}
@@ -468,7 +462,6 @@ void getControlInfo(int currentSocketFD, int size){
 				}
 			}
 		}
-
 		if(changesOnTabelle){
 			notifyAllServers();
 		}

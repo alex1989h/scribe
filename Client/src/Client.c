@@ -35,32 +35,38 @@ void *Client(void* not_used) {
 		struct CommonHeader commonHeader;
 		memset(&commonHeader, 0, sizeof(commonHeader));
 		result = recv(baseSocketFD, (void*) &commonHeader, sizeof(commonHeader), 0);
-		if (result == -1) {
+		if(result == 0){
+			printf("Server ausgefallen!\nSchließe Client\n");
+			close(baseSocketFD);
+			exit(EXIT_SUCCESS);
+		}else if (result == -1) {
 			printf("ERROR on recv: Unable to receive Commonheader\n");
-		}
-		if (commonHeader.type == MESSAGE) {
-			receiveMessage(commonHeader.lenght);
-		}else if (commonHeader.type == CONTROL_INFO) {
-			struct ControlInfoBody controlInfoBody;
-			memset((void*) &controlInfoBody, 0, sizeof(controlInfoBody));
-			result = recv(baseSocketFD, (void*) &controlInfoBody, 20*commonHeader.lenght, 0);//BYTE
-			if (result == -1) {
-				printf("ERROR on recv():Unable to receive Tabele namen");
-			} else {
-				int i = 0;
-				for (i = 0; i < commonHeader.lenght; i++) {
-					printf("%d: Name: %s\n", i,controlInfoBody.tabelle[i].benutzername);
+		}else{
+			if (commonHeader.type == MESSAGE) {
+				receiveMessage(commonHeader.lenght);
+			}else if (commonHeader.type == CONTROL_INFO) {
+				struct ControlInfoBody controlInfoBody;
+				memset((void*) &controlInfoBody, 0, sizeof(controlInfoBody));
+				result = recv(baseSocketFD, (void*) &controlInfoBody, 20*commonHeader.lenght, 0);//BYTE
+				if (result == -1) {
+					printf("ERROR on recv():Unable to receive Tabele namen");
+				} else {
+					int i = 0;
+					for (i = 0; i < commonHeader.lenght; i++) {
+						printf("%d: Name: %s\n", i,controlInfoBody.tabelle[i].benutzername);
+					}
 				}
-			}
-		}else if (commonHeader.type == LOG_IN_OUT) {
-			if (commonHeader.flag == (FIN | ACK)) {
-				printf("Logout erfolgreich\n");
-				exit(EXIT_SUCCESS);
-			}else if (commonHeader.flag == (SYN | ACK)) {
-				printf("Login erfolgreich\n");
-				loginSuccess = 1;
-			}else if(commonHeader.flag == (DUP | SYN | ACK)){
-				printf("Login fehlgeschlagen: Name bereits vergeben \n");
+			}else if (commonHeader.type == LOG_IN_OUT) {
+				if (commonHeader.flag == (FIN | ACK)) {
+					printf("Logout erfolgreich\n");
+					close(baseSocketFD);
+					exit(EXIT_SUCCESS);
+				}else if (commonHeader.flag == (SYN | ACK)) {
+					printf("Login erfolgreich\n");
+					loginSuccess = 1;
+				}else if(commonHeader.flag == (DUP | SYN | ACK)){
+					printf("Login fehlgeschlagen: Name bereits vergeben \n");
+				}
 			}
 		}
 	}
@@ -179,6 +185,13 @@ void connectToServer(char* ipAdresse){
 void command(){
 	int exitWileLoop = 0;
 	char command[20];
+	printf("_____________________________________________________________\n");
+	printf("|                                                            |\n");
+	printf("|Befehle:                                                    |\n");
+	printf("|/LOGIN  für das Einlogen auf ein Sever.                     |\n");
+	printf("|/INFO   für das Anfordern der Namen aller angemeldeten User.|\n");
+	printf("|/LOGOUT für das Auslogen und/oder Schließen des Clients.    |\n");
+	printf("|____________________________________________________________|\n");
 	while (!exitWileLoop) {
 		printf("Geben sie ein Befehle ein:\n");
 
@@ -193,7 +206,10 @@ void command(){
 			if (loginSuccess) {
 				printf("Close programm\n");
 				logOut(name);
-				exitWileLoop = 1;
+			}else{
+				printf("Close programm\n");
+				close(baseSocketFD);
+				exit(EXIT_SUCCESS);
 			}
 		} else if (strcmp(command, "/SEND") == 0) {
 			if (loginSuccess) {
