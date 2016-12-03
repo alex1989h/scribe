@@ -24,6 +24,10 @@
 #define PORT 9012
 #define IP "127.0.0.1"
 #define NAME_SIZE 15
+#define COMAND_SIZE 20
+#define IP_SIZE 16
+#define PROTOCOL_VERSION 1
+#define MSG_NAME_SIZE 16
 
 struct CommonHeader {
 	uint8_t type;

@@ -16,9 +16,9 @@ char name[NAME_SIZE];
 
 int main(void) {
 
-	char ipAdresse[20];
+	char ipAdresse[IP_SIZE];
 	printf("Mit welchem Server wollt ihr euch verbinden\nGeben sie die Ip Addresse ein:\n");
-	fgets(ipAdresse, NAME_SIZE, stdin);
+	fgets(ipAdresse, IP_SIZE, stdin);
 	ipAdresse[strcspn(ipAdresse, "\n")] = 0;
 	connectToServer(ipAdresse);
 
@@ -68,7 +68,7 @@ void logIn(char* tempName) {
 	if(size > 0){
 		struct LogInOut logInOut;
 		memset(&logInOut, 0, sizeof(logInOut));
-		createHeader(&logInOut.commonHeader,LOG_IN_OUT,SYN,1,size);
+		createHeader(&logInOut.commonHeader,LOG_IN_OUT,SYN,PROTOCOL_VERSION,size);
 
 		strcpy(logInOut.logInOutBody.benutzername, tempName);
 
@@ -88,7 +88,7 @@ void logOut(char* tempName){
 	if(size > 0){
 		struct LogInOut logInOut;
 		memset(&logInOut, 0, sizeof(logInOut));
-		createHeader(&logInOut.commonHeader, LOG_IN_OUT, FIN, 1, size);
+		createHeader(&logInOut.commonHeader, LOG_IN_OUT, FIN, PROTOCOL_VERSION, size);
 
 		strcpy(logInOut.logInOutBody.benutzername, tempName);
 
@@ -107,7 +107,7 @@ void loadInfo(){
 	ssize_t result;
 	struct CommonHeader commonHeader;
 	memset(&commonHeader,0,sizeof(commonHeader));
-	createHeader(&commonHeader, CONTROL_INFO , GET, 1, 0);
+	createHeader(&commonHeader, CONTROL_INFO , GET, PROTOCOL_VERSION, 0);
 
 	result = send(baseSocketFD,(void*)&commonHeader,sizeof(commonHeader),0);
 	if(result == -1){
@@ -121,7 +121,7 @@ void sendMessage(char* quelle, char* ziel, char* message){
 		ssize_t result;
 		struct Message messageStruct;
 		memset((void*)&messageStruct,0,sizeof(messageStruct));
-		createHeader(&messageStruct.commonHeader,MESSAGE,0,1,size);
+		createHeader(&messageStruct.commonHeader,MESSAGE,UNDEFINE,PROTOCOL_VERSION,size);
 
 
 		strcpy(messageStruct.messageBody.quellbenutzername,quelle);
@@ -133,12 +133,12 @@ void sendMessage(char* quelle, char* ziel, char* message){
 			printf("ERROR on send():Unable so send the Message");
 		}
 
-		result = send(baseSocketFD,(void*) &messageStruct.messageBody.quellbenutzername, 16, 0);
+		result = send(baseSocketFD,(void*) &messageStruct.messageBody.quellbenutzername, MSG_NAME_SIZE, 0);
 		if (result == -1) {
 			printf("ERROR on send():Unable so send the Message");
 		}
 
-		result = send(baseSocketFD, (void*) &messageStruct.messageBody.zielbenutzername, 16, 0);
+		result = send(baseSocketFD, (void*) &messageStruct.messageBody.zielbenutzername, MSG_NAME_SIZE, 0);
 		if (result == -1) {
 			printf("ERROR on send():Unable so send the Message");
 		}
@@ -156,6 +156,7 @@ void connectToServer(char* ipAdresse){
 		baseSocketFD = socket(AF_INET, SOCK_STREAM, 0);
 		if (baseSocketFD == -1) {
 			printf("ERROR on socket(): Erstellung des Sockets fehlgeschlagen\n");
+			exit(EXIT_SUCCESS);
 		}
 		memset(&isa, 0, sizeof(isa));
 		isa.sin_family = AF_INET;
@@ -163,8 +164,12 @@ void connectToServer(char* ipAdresse){
 		result = inet_pton(AF_INET, ipAdresse, &isa.sin_addr);
 		if (result == 0) {
 			printf("ERROR on inet_pton():  Not valid network address\n");
+			close(baseSocketFD);
+			exit(EXIT_SUCCESS);
 		} else if (result == -1) {
 			printf("ERROR on inet_pton(): Not valid address family\n");
+			close(baseSocketFD);
+			exit(EXIT_SUCCESS);
 		}
 		result = connect(baseSocketFD, (struct sockaddr *) &isa, sizeof(isa));
 
@@ -181,7 +186,7 @@ void connectToServer(char* ipAdresse){
 
 void command(){
 	int exitWileLoop = 0;
-	char command[20];
+	char command[COMAND_SIZE];
 	printf(" _____________________________________________________________\n");
 	printf("|                                                             |\n");
 	printf("| Befehle:                                                    |\n");
@@ -193,7 +198,7 @@ void command(){
 	while (!exitWileLoop) {
 		printf("Geben sie ein Befehle ein:\n");
 
-		fgets(command, 20, stdin);
+		fgets(command, COMAND_SIZE, stdin);
 		command[strcspn(command, "\n")] = 0;
 		if (strcmp(command, "/INFO") == 0) {
 			if (loginSuccess) {
@@ -246,11 +251,11 @@ void receiveMessage(int size){
 	struct MessageBody messageBody;
 	memset((void*) &messageBody, 0, sizeof(messageBody));
 
-	result = recv(baseSocketFD, (void*) &messageBody.quellbenutzername, 16, 0);
+	result = recv(baseSocketFD, (void*) &messageBody.quellbenutzername, MSG_NAME_SIZE, 0);
 	if (result == -1) {
 		printf("ERROR on recv():Unable to receive Message Quell Namen");
 	}
-	result = recv(baseSocketFD, (void*) &messageBody.zielbenutzername, 16, 0);
+	result = recv(baseSocketFD, (void*) &messageBody.zielbenutzername, MSG_NAME_SIZE, 0);
 	if (result == -1) {
 		printf("ERROR on recv():Unable to receive Message Ziel Namen");
 	}
@@ -268,7 +273,7 @@ void getUserNames(int size){
 	struct ControlInfoBody controlInfoBody;
 	memset((void*) &controlInfoBody, 0, sizeof(controlInfoBody));
 	if(size > 0){
-		result = recv(baseSocketFD, (void*) &controlInfoBody, 20 * size, 0); //BYTE
+		result = recv(baseSocketFD, (void*) &controlInfoBody, sizeof(struct Tabelle) * size, 0); //BYTE
 		if (result == -1) {
 			printf("ERROR on recv():Unable to receive Tabele namen");
 		} else {

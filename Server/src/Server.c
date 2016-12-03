@@ -43,7 +43,7 @@ int main(void) {
 	result = setsockopt(baseSocketFD, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 	if (result == -1) {
 		perror("setsockopt");
-		printf("ERROR on setsockopt: Bind funktioniert nicht.\n");
+		printf("ERROR on setsockopt: Socket Optionen setzten fehlgeschlagen.\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -178,7 +178,7 @@ void connectToServer(char *ipAdresse){
 			FD_SET(serverSocketFD, &activefds);
 			struct CommonHeader header;
 			memset(&header, 0, sizeof(header));
-			createHeader(&header,CONNECT,0,1,0);
+			createHeader(&header,CONNECT,0,PROTOCOL_VERSION,0);
 			putNewServer(serverSocketFD);
 			send(localSocketFD,(void*) &header, sizeof(header), 0);
 			sendControlInfo(serverSocketFD, UNDEFINE, tabelleSize);
@@ -193,13 +193,13 @@ void sendControlInfo(int currentSocketFD, uint8_t flags, int size){
 	int result;
 
 	struct CommonHeader commonHeader;
-	createHeader(&commonHeader, CONTROL_INFO, flags, 1 , size);
+	createHeader(&commonHeader, CONTROL_INFO, flags, PROTOCOL_VERSION , size);
 	result = send(currentSocketFD, (void*) &commonHeader, sizeof(commonHeader), 0);
 	if (result == -1) {
 		printf("ERROR on send(): Unable to send Control Info Lcontrol Info\n");
 	}
 	if (size > 0) {
-		result = send(currentSocketFD, (void*) &localBody, 20 * size, 0); //20 Byte
+		result = send(currentSocketFD, (void*) &localBody, sizeof(struct Tabelle) * size, 0); //20 Byte
 		if (result == -1) {
 			printf("ERROR on send(): Unable to send Control Info Lcontrol Info\n");
 		}
@@ -229,22 +229,22 @@ void deleteEntry(int index){
 
 void commands(){
 	bool exitWileLoop = false;
-	char command[20];
+	char command[COMAND_SIZE];
 	printf(" _____________________________________________\n");
 	printf("|                                             |\n");
 	printf("| Befehle:                                    |\n");
 	printf("|                                             |\n");
-	printf("| /CONNECT für Verbinden zum anderen Servern  |:\n");
+	printf("| /CONNECT für Verbinden zum anderen Servern  |\n");
 	printf("| /CLOSE   für Schließen diesen Servers       |\n");
 	printf("|_____________________________________________|\n");
 	while (!exitWileLoop) {
 		printf("Geben sie ein Befehle ein:\n");
-		fgets(command, 20, stdin);
+		fgets(command, COMAND_SIZE, stdin);
 		command[strcspn(command, "\n")] = 0;
 		if (strcmp(command, "/CONNECT") == 0) {
-			char ipAdresse[20];
+			char ipAdresse[IP_SIZE];
 			printf("Geben Si die Ip Addresse ein:\n");
-			fgets(ipAdresse, 20, stdin);
+			fgets(ipAdresse, IP_SIZE, stdin);
 			ipAdresse[strcspn(ipAdresse, "\n")] = 0;
 			connectToServer(ipAdresse);
 		}else if(strcmp(command, "/CLOSE") == 0){
@@ -295,7 +295,7 @@ void putNewServer(int currentSocketFD){
 void logInRequest(int currentSocketFD, int size) {
 	int result;
 	int j;
-	char tempName[15];
+	char tempName[NAME_SIZE];
 	bool nameExist = false;
 	printf("Login Request\n");
 	struct LogInOutBody logInOutBody;
@@ -317,7 +317,7 @@ void logInRequest(int currentSocketFD, int size) {
 		struct CommonHeader logInOutHeader;
 		memset(&logInOutHeader, 0, sizeof(logInOutHeader));
 		if (nameExist) {
-			createHeader(&logInOutHeader, LOG_IN_OUT, (DUP | SYN | ACK), 1,0);
+			createHeader(&logInOutHeader, LOG_IN_OUT, (DUP | SYN | ACK), PROTOCOL_VERSION,0);
 			result = send(currentSocketFD, (void*) &logInOutHeader, sizeof(logInOutHeader), 0);
 			if (result == -1) {
 				printf("ERROR on send(): Unable to send LogInOut with DUB\n");
@@ -325,7 +325,7 @@ void logInRequest(int currentSocketFD, int size) {
 				printf("Login fehlgeschlagen Benutzename: %s bereits vergeben\n",tempName);
 			}
 		} else {
-			createHeader(&logInOutHeader, LOG_IN_OUT, (SYN | ACK), 1, 0);
+			createHeader(&logInOutHeader, LOG_IN_OUT, (SYN | ACK), PROTOCOL_VERSION, 0);
 			result = send(currentSocketFD, (void*) &logInOutHeader,sizeof(logInOutHeader), 0);
 			if (result == -1) {
 				printf("ERROR on send(): Unable to send LogInOut with ACK\n");
@@ -366,7 +366,7 @@ void logOutRequest(int currentSocketFD,int size){
 			}
 			struct LogInOut logInOut;
 			memset(&logInOut, 0, sizeof(logInOut));
-			createHeader(&logInOut.commonHeader, LOG_IN_OUT, (FIN | ACK), 1, 0);
+			createHeader(&logInOut.commonHeader, LOG_IN_OUT, (FIN | ACK), PROTOCOL_VERSION, 0);
 			result = send(currentSocketFD, (void*) &logInOut.commonHeader, sizeof(logInOut.commonHeader), 0);
 			if (result == -1) {
 				printf("ERROR on send(): Unable to send LogInOut Header  with DUB\n");
@@ -390,10 +390,10 @@ void passMessage(int currentSocketFD, int size){
 	struct Message message;
 	memset(&message, 0, sizeof(message));
 
-	createHeader(&message.commonHeader,MESSAGE,0,1,size);
+	createHeader(&message.commonHeader,MESSAGE,0,PROTOCOL_VERSION,size);
 
-	result = recv(currentSocketFD, (void*) &message.messageBody.quellbenutzername, 16,0);
-	result = recv(currentSocketFD, (void*) &message.messageBody.zielbenutzername, 16,0);
+	result = recv(currentSocketFD, (void*) &message.messageBody.quellbenutzername, MSG_NAME_SIZE,0);
+	result = recv(currentSocketFD, (void*) &message.messageBody.zielbenutzername, MSG_NAME_SIZE,0);
 	if(size > 0){
 		result = recv(currentSocketFD, (void*) &message.messageBody.nachricht, size,0);
 	}
@@ -401,8 +401,8 @@ void passMessage(int currentSocketFD, int size){
 
 	if(sendSockedFD > 0){
 		result = send(sendSockedFD, (void*) &message.commonHeader, sizeof(message.commonHeader),0);
-		result = send(sendSockedFD, (void*) &message.messageBody.quellbenutzername, 16,0);
-		result = send(sendSockedFD, (void*) &message.messageBody.zielbenutzername, 16,0);
+		result = send(sendSockedFD, (void*) &message.messageBody.quellbenutzername, MSG_NAME_SIZE,0);
+		result = send(sendSockedFD, (void*) &message.messageBody.zielbenutzername, MSG_NAME_SIZE,0);
 		if(size > 0){
 			result = send(sendSockedFD, (void*) &message.messageBody.nachricht, size,0);
 		}
@@ -428,12 +428,11 @@ void getControlInfo(int currentSocketFD, int size){
 	printf("ControlInfo erhalten\n");
 	putNewServer(currentSocketFD);
 
-	//TODO:Tabellen Austauschen
 	struct ControlInfoBody receivedBody;
 	memset(&receivedBody, 0, sizeof(receivedBody));
 
 	if(size > 0){
-		result = recv(currentSocketFD, (void*) &receivedBody,20*size, 0);
+		result = recv(currentSocketFD, (void*) &receivedBody,sizeof(struct Tabelle)*size, 0);
 	}
 
 	if (result == -1) {
