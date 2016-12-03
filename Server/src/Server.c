@@ -284,10 +284,12 @@ void putNewServer(int currentSocketFD){
 		if (!serverExist) {
 			serverfds[serverSize] = currentSocketFD;
 			serverSize++;
+			printf("Neuer Server wurde hinzugefügt\n");
 		}
 	} else {
 		serverfds[serverSize] = currentSocketFD;
 		serverSize++;
+		printf("Neuer Server wurde hinzugefügt\n");
 	}
 	pthread_mutex_unlock(&mtx);
 }
@@ -503,14 +505,6 @@ void verbindungTrennen(int currentSocketFD){
 	}
 	FD_CLR(currentSocketFD, &activefds);
 	close(currentSocketFD);
-}
-
-void incomingConnection(){
-
-}
-
-void outgoingConnection(){
-
 }
 
 void connectToMyself(){

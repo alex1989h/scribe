@@ -109,7 +109,5 @@ void logOutRequest(int,int);
 int sucheSocketFD(char*);
 void getControlInfo(int,int);
 void verbindungTrennen(int);
-void incomingConnection(void);
-void outgoingConnection(void);
 void connectToMyself(void);
 #endif /* SERVER_H_ */
