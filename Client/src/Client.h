@@ -89,4 +89,5 @@ void connectToServer(char*);
 void command(void);
 void createHeader(struct CommonHeader*,uint8_t,uint8_t,uint8_t,uint8_t);
 void receiveMessage(int);
+void getUserNames(int);
 #endif /* CLIENT_H_ */

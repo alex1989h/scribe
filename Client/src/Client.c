@@ -45,17 +45,7 @@ void *Client(void* not_used) {
 			if (commonHeader.type == MESSAGE) {
 				receiveMessage(commonHeader.lenght);
 			}else if (commonHeader.type == CONTROL_INFO) {
-				struct ControlInfoBody controlInfoBody;
-				memset((void*) &controlInfoBody, 0, sizeof(controlInfoBody));
-				result = recv(baseSocketFD, (void*) &controlInfoBody, 20*commonHeader.lenght, 0);//BYTE
-				if (result == -1) {
-					printf("ERROR on recv():Unable to receive Tabele namen");
-				} else {
-					int i = 0;
-					for (i = 0; i < commonHeader.lenght; i++) {
-						printf("%d: Name: %s\n", i,controlInfoBody.tabelle[i].benutzername);
-					}
-				}
+				getUserNames(commonHeader.lenght);
 			}else if (commonHeader.type == LOG_IN_OUT) {
 				if (commonHeader.flag == (FIN | ACK)) {
 					printf("Logout erfolgreich\n");
@@ -74,36 +64,42 @@ void *Client(void* not_used) {
 }
 
 void logIn(char* tempName) {
-	struct LogInOut logInOut;
-	memset(&logInOut, 0, sizeof(logInOut));
-	createHeader(&logInOut.commonHeader,LOG_IN_OUT,SYN,1,strlen(tempName));
+	int size = strlen(tempName);
+	if(size > 0){
+		struct LogInOut logInOut;
+		memset(&logInOut, 0, sizeof(logInOut));
+		createHeader(&logInOut.commonHeader,LOG_IN_OUT,SYN,1,size);
 
-	strcpy(logInOut.logInOutBody.benutzername, tempName);
+		strcpy(logInOut.logInOutBody.benutzername, tempName);
 
-	ssize_t result = send(baseSocketFD, (void*) &logInOut.commonHeader, sizeof(logInOut.commonHeader), 0);
-	if (result == -1) {
-		printf("ERROR on send(): Unable to send LogInOut\n");
-	}
-	result = send(baseSocketFD, (void*) &logInOut.logInOutBody, strlen(tempName), 0);
-	if (result == -1) {
-		printf("ERROR on send(): Unable to send LogInOut\n");
+		ssize_t result = send(baseSocketFD, (void*) &logInOut.commonHeader, sizeof(logInOut.commonHeader), 0);
+		if (result == -1) {
+			printf("ERROR on send(): Unable to send LogInOut\n");
+		}
+		result = send(baseSocketFD, (void*) &logInOut.logInOutBody, size, 0);
+		if (result == -1) {
+			printf("ERROR on send(): Unable to send LogInOut\n");
+		}
 	}
 }
 
 void logOut(char* tempName){
-	struct LogInOut logInOut;
-	memset(&logInOut, 0, sizeof(logInOut));
-	createHeader(&logInOut.commonHeader, LOG_IN_OUT, FIN, 1, strlen(tempName));
+	int size = strlen(tempName);
+	if(size > 0){
+		struct LogInOut logInOut;
+		memset(&logInOut, 0, sizeof(logInOut));
+		createHeader(&logInOut.commonHeader, LOG_IN_OUT, FIN, 1, size);
 
-	strcpy(logInOut.logInOutBody.benutzername, tempName);
+		strcpy(logInOut.logInOutBody.benutzername, tempName);
 
-	ssize_t result = send(baseSocketFD, (void*) &logInOut.commonHeader,sizeof(logInOut.commonHeader), 0);
-	if (result == -1) {
-		printf("ERROR on send(): Unable to send LogInOut\n");
-	}
-	result = send(baseSocketFD, (void*) &logInOut.logInOutBody, strlen(tempName), 0);
-	if (result == -1) {
-		printf("ERROR on send(): Unable to send LogInOut\n");
+		ssize_t result = send(baseSocketFD, (void*) &logInOut.commonHeader,sizeof(logInOut.commonHeader), 0);
+		if (result == -1) {
+			printf("ERROR on send(): Unable to send LogInOut\n");
+		}
+		result = send(baseSocketFD, (void*) &logInOut.logInOutBody, size, 0);
+		if (result == -1) {
+			printf("ERROR on send(): Unable to send LogInOut\n");
+		}
 	}
 }
 
@@ -111,10 +107,8 @@ void loadInfo(){
 	ssize_t result;
 	struct CommonHeader commonHeader;
 	memset(&commonHeader,0,sizeof(commonHeader));
-	commonHeader.type = CONTROL_INFO;
-	commonHeader.flag = GET;
-	commonHeader.version = 1;
-	commonHeader.lenght = 0;
+	createHeader(&commonHeader, CONTROL_INFO , GET, 1, 0);
+
 	result = send(baseSocketFD,(void*)&commonHeader,sizeof(commonHeader),0);
 	if(result == -1){
 		printf("ERROR on send():Unable to send GET");
@@ -122,34 +116,37 @@ void loadInfo(){
 }
 
 void sendMessage(char* quelle, char* ziel, char* message){
-	ssize_t result;
-	struct Message messageStruct;
-	memset((void*)&messageStruct,0,sizeof(messageStruct));
-	createHeader(&messageStruct.commonHeader,MESSAGE,0,1,strlen(message));
+	int size = strlen(message);
+	if(size > 0){
+		ssize_t result;
+		struct Message messageStruct;
+		memset((void*)&messageStruct,0,sizeof(messageStruct));
+		createHeader(&messageStruct.commonHeader,MESSAGE,0,1,size);
 
 
-	strcpy(messageStruct.messageBody.quellbenutzername,quelle);
-	strcpy(messageStruct.messageBody.zielbenutzername,ziel);
-	strcpy(messageStruct.messageBody.nachricht,message);
+		strcpy(messageStruct.messageBody.quellbenutzername,quelle);
+		strcpy(messageStruct.messageBody.zielbenutzername,ziel);
+		strcpy(messageStruct.messageBody.nachricht,message);
 
-	result = send(baseSocketFD, (void*) &messageStruct.commonHeader,sizeof(messageStruct.commonHeader), 0);
-	if (result == -1) {
-		printf("ERROR on send():Unable so send the Message");
-	}
+		result = send(baseSocketFD, (void*) &messageStruct.commonHeader,sizeof(messageStruct.commonHeader), 0);
+		if (result == -1) {
+			printf("ERROR on send():Unable so send the Message");
+		}
 
-	result = send(baseSocketFD,(void*) &messageStruct.messageBody.quellbenutzername, 16, 0);
-	if (result == -1) {
-		printf("ERROR on send():Unable so send the Message");
-	}
+		result = send(baseSocketFD,(void*) &messageStruct.messageBody.quellbenutzername, 16, 0);
+		if (result == -1) {
+			printf("ERROR on send():Unable so send the Message");
+		}
 
-	result = send(baseSocketFD, (void*) &messageStruct.messageBody.zielbenutzername, 16, 0);
-	if (result == -1) {
-		printf("ERROR on send():Unable so send the Message");
-	}
+		result = send(baseSocketFD, (void*) &messageStruct.messageBody.zielbenutzername, 16, 0);
+		if (result == -1) {
+			printf("ERROR on send():Unable so send the Message");
+		}
 
-	result = send(baseSocketFD, (void*) &messageStruct.messageBody.nachricht, strlen(message), 0);
-	if (result == -1) {
-		printf("ERROR on send():Unable so send the Message");
+		result = send(baseSocketFD, (void*) &messageStruct.messageBody.nachricht, size, 0);
+		if (result == -1) {
+			printf("ERROR on send():Unable so send the Message");
+		}
 	}
 }
 
@@ -256,9 +253,29 @@ void receiveMessage(int size){
 	if (result == -1) {
 		printf("ERROR on recv():Unable to receive Message Ziel Namen");
 	}
-	result = recv(baseSocketFD, (void*) &messageBody.nachricht, size, 0);
-	if (result == -1) {
-		printf("ERROR on recv():Unable to receive Message Nachricht");
+	if(size > 0){
+		result = recv(baseSocketFD, (void*) &messageBody.nachricht, size, 0);
+		if (result == -1) {
+			printf("ERROR on recv():Unable to receive Message Nachricht");
+		}
 	}
 	printf("(%s -> %s)\n Message:%s\n", messageBody.quellbenutzername,messageBody.zielbenutzername, messageBody.nachricht);
+}
+
+void getUserNames(int size){
+	int result;
+	struct ControlInfoBody controlInfoBody;
+	memset((void*) &controlInfoBody, 0, sizeof(controlInfoBody));
+	if(size > 0){
+		result = recv(baseSocketFD, (void*) &controlInfoBody, 20 * size, 0); //BYTE
+		if (result == -1) {
+			printf("ERROR on recv():Unable to receive Tabele namen");
+		} else {
+			int i = 0;
+			for (i = 0; i < size; i++) {
+				printf("%d: Name: %s\n", i,
+						controlInfoBody.tabelle[i].benutzername);
+			}
+		}
+	}
 }

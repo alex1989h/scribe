@@ -178,7 +178,7 @@ void connectToServer(char *ipAdresse){
 			FD_SET(serverSocketFD, &activefds);
 			struct CommonHeader header;
 			memset(&header, 0, sizeof(header));
-			createHeader(&header,CONNECT,0,1,sizeof(int));
+			createHeader(&header,CONNECT,0,1,0);
 			putNewServer(serverSocketFD);
 			send(localSocketFD,(void*) &header, sizeof(header), 0);
 			sendControlInfo(serverSocketFD, GET, 0);
@@ -197,11 +197,13 @@ void sendControlInfo(int currentSocketFD, uint8_t flags, int size){
 	if (result == -1) {
 		printf("ERROR on send(): Unable to send Control Info Lcontrol Info\n");
 	}
-	result = send(currentSocketFD, (void*) &localBody, 20*size, 0);//20 Byte
-
-	if (result == -1) {
-		printf("ERROR on send(): Unable to send Control Info Lcontrol Info\n");
+	if (size > 0) {
+		result = send(currentSocketFD, (void*) &localBody, 20 * size, 0); //20 Byte
+		if (result == -1) {
+			printf("ERROR on send(): Unable to send Control Info Lcontrol Info\n");
+		}
 	}
+
 }
 
 void notifyAllServers(){
@@ -290,48 +292,48 @@ void logInRequest(int currentSocketFD, int size) {
 	printf("Login Request\n");
 	struct LogInOutBody logInOutBody;
 	memset(&logInOutBody, 0, sizeof(logInOutBody));
-	result = recv(currentSocketFD, (void*) &logInOutBody, size, 0);
-	if (result == -1) {
-		printf("ERROR on recv: Unable to receive LogInOutBody\n");
-	}
-	memset(&tempName, 0, sizeof(tempName));
-	strcpy(tempName, logInOutBody.benutzername);
-	for (j = 0; j < tabelleSize; j++) {
-		if (strcmp(connectionInfo[j].name, tempName) == 0) {
-			nameExist = true;
-			break;
+	if(size > 0){
+		result = recv(currentSocketFD, (void*) &logInOutBody, size, 0);
+		if (result == -1) {
+			printf("ERROR on recv: Unable to receive LogInOutBody\n");
+		}
+		memset(&tempName, 0, sizeof(tempName));
+		strcpy(tempName, logInOutBody.benutzername);
+		for (j = 0; j < tabelleSize; j++) {
+			if (strcmp(connectionInfo[j].name, tempName) == 0) {
+				nameExist = true;
+				break;
 
+			}
 		}
-	}
-	struct LogInOut logInOut;
-	memset(&logInOut, 0, sizeof(logInOut));
-	if (nameExist) {
-		createHeader(&logInOut.commonHeader, LOG_IN_OUT, (DUP | SYN | ACK), 1,0);
-		result = send(currentSocketFD, (void*) &logInOut, sizeof(logInOut), 0);
-		if (result == -1) {
-			printf("ERROR on send(): Unable to send LogInOut with DUB\n");
+		struct CommonHeader logInOutHeader;
+		memset(&logInOutHeader, 0, sizeof(logInOutHeader));
+		if (nameExist) {
+			createHeader(&logInOutHeader, LOG_IN_OUT, (DUP | SYN | ACK), 1,0);
+			result = send(currentSocketFD, (void*) &logInOutHeader, sizeof(logInOutHeader), 0);
+			if (result == -1) {
+				printf("ERROR on send(): Unable to send LogInOut with DUB\n");
+			} else {
+				printf("Login fehlgeschlagen Benutzename: %s bereits vergeben\n",tempName);
+			}
 		} else {
-			printf("Login fehlgeschlagen Benutzename: %s bereits vergeben\n",tempName);
+			createHeader(&logInOutHeader, LOG_IN_OUT, (SYN | ACK), 1, 0);
+			result = send(currentSocketFD, (void*) &logInOutHeader,sizeof(logInOutHeader), 0);
+			if (result == -1) {
+				printf("ERROR on send(): Unable to send LogInOut with ACK\n");
+			} else {
+				printf("Login erfolgreich. Neuer Benutze: %s hinzugefügt\n",tempName);
+			}
+			strcpy(connectionInfo[tabelleSize].name, tempName);
+			connectionInfo[tabelleSize].socketFD = currentSocketFD;
+			connectionInfo[tabelleSize].hops = 1;
+			strcpy(localBody.tabelle[tabelleSize].benutzername, tempName);
+			localBody.tabelle[tabelleSize].hops = 1;
+			tabelleSize++;
+			notifyAllServers();
 		}
-	} else {
-		createHeader(&logInOut.commonHeader, LOG_IN_OUT, (SYN | ACK), 1, 0);
-		result = send(currentSocketFD, (void*) &logInOut.commonHeader,sizeof(logInOut.commonHeader), 0);
-		if (result == -1) {
-			printf("ERROR on send(): Unable to send LogInOut with ACK\n");
-		} else {
-			printf("Login erfolgreich. Neuer Benutze: %s hinzugefügt\n",tempName);
-		}
-		result = send(currentSocketFD, (void*) &logInOut.logInOutBody,logInOut.commonHeader.lenght, 0);
-		if (result == -1) {
-			printf("ERROR on send(): Unable to send LogInOut with ACK\n");
-		}
-		strcpy(connectionInfo[tabelleSize].name, tempName);
-		connectionInfo[tabelleSize].socketFD = currentSocketFD;
-		connectionInfo[tabelleSize].hops = 1;
-		strcpy(localBody.tabelle[tabelleSize].benutzername, tempName);
-		localBody.tabelle[tabelleSize].hops = 1;
-		tabelleSize++;
-		notifyAllServers();
+	}else{
+		printf("Es wurde ein kein Name eingegeben\n");
 	}
 }
 
@@ -342,31 +344,35 @@ void logOutRequest(int currentSocketFD,int size){
 	printf("Logout Request\n");
 	struct LogInOutBody logInOutBody;
 	memset(&logInOutBody, 0, sizeof(logInOutBody));
-	result = recv(currentSocketFD, (void*) &logInOutBody, size ,0);
-	if (result == -1) {
-		printf("ERROR on recv: Unable to receive LogInOutBody\n");
-	} else {
-		strcpy(tempName, logInOutBody.benutzername);
-		for (j = 0; j < tabelleSize; j++) {
-			if (strcmp(connectionInfo[j].name, tempName) == 0) {
-				deleteEntry(j);
-				break;
+	if(size > 0){
+		result = recv(currentSocketFD, (void*) &logInOutBody, size ,0);
+		if (result == -1) {
+			printf("ERROR on recv: Unable to receive LogInOutBody\n");
+		} else {
+			strcpy(tempName, logInOutBody.benutzername);
+			for (j = 0; j < tabelleSize; j++) {
+				if (strcmp(connectionInfo[j].name, tempName) == 0) {
+					deleteEntry(j);
+					break;
+				}
 			}
-		}
-		struct LogInOut logInOut;
-		memset(&logInOut, 0, sizeof(logInOut));
-		createHeader(&logInOut.commonHeader, LOG_IN_OUT, (FIN | ACK), 1, 0);
-		result = send(currentSocketFD, (void*) &logInOut.commonHeader, sizeof(logInOut.commonHeader), 0);
-		if (result == -1) {
-			printf("ERROR on send(): Unable to send LogInOut Header  with DUB\n");
-		}
-		result = send(currentSocketFD, (void*) &logInOut.logInOutBody, 0, 0);
-		if (result == -1) {
-			printf("ERROR on send(): Unable to send LogInOut Body with DUB\n");
-		}
+			struct LogInOut logInOut;
+			memset(&logInOut, 0, sizeof(logInOut));
+			createHeader(&logInOut.commonHeader, LOG_IN_OUT, (FIN | ACK), 1, 0);
+			result = send(currentSocketFD, (void*) &logInOut.commonHeader, sizeof(logInOut.commonHeader), 0);
+			if (result == -1) {
+				printf("ERROR on send(): Unable to send LogInOut Header  with DUB\n");
+			}
+			result = send(currentSocketFD, (void*) &logInOut.logInOutBody, 0, 0);
+			if (result == -1) {
+				printf("ERROR on send(): Unable to send LogInOut Body with DUB\n");
+			}
 
-		FD_CLR(currentSocketFD, &activefds);
-		notifyAllServers();
+			FD_CLR(currentSocketFD, &activefds);
+			notifyAllServers();
+		}
+	}else{
+		printf("Fehler.\nBeim Auslogen wurde die Größe 0 des Benutzernames übermittelt\n");
 	}
 }
 
@@ -380,15 +386,18 @@ void passMessage(int currentSocketFD, int size){
 
 	result = recv(currentSocketFD, (void*) &message.messageBody.quellbenutzername, 16,0);
 	result = recv(currentSocketFD, (void*) &message.messageBody.zielbenutzername, 16,0);
-	result = recv(currentSocketFD, (void*) &message.messageBody.nachricht, size,0);
-
+	if(size > 0){
+		result = recv(currentSocketFD, (void*) &message.messageBody.nachricht, size,0);
+	}
 	int sendSockedFD = sucheSocketFD(message.messageBody.zielbenutzername);
 
 	if(sendSockedFD > 0){
-	result = send(sendSockedFD, (void*) &message.commonHeader, sizeof(message.commonHeader),0);
-	result = send(sendSockedFD, (void*) &message.messageBody.quellbenutzername, 16,0);
-	result = send(sendSockedFD, (void*) &message.messageBody.zielbenutzername, 16,0);
-	result = send(sendSockedFD, (void*) &message.messageBody.nachricht, size,0);
+		result = send(sendSockedFD, (void*) &message.commonHeader, sizeof(message.commonHeader),0);
+		result = send(sendSockedFD, (void*) &message.messageBody.quellbenutzername, 16,0);
+		result = send(sendSockedFD, (void*) &message.messageBody.zielbenutzername, 16,0);
+		if(size > 0){
+			result = send(sendSockedFD, (void*) &message.messageBody.nachricht, size,0);
+		}
 	}
 
 }
@@ -415,7 +424,9 @@ void getControlInfo(int currentSocketFD, int size){
 	struct ControlInfoBody receivedBody;
 	memset(&receivedBody, 0, sizeof(receivedBody));
 
-	result = recv(currentSocketFD, (void*) &receivedBody,20*size, 0);
+	if(size > 0){
+		result = recv(currentSocketFD, (void*) &receivedBody,20*size, 0);
+	}
 
 	if (result == -1) {
 		printf("ERROR on recv: Unable to receive ControlInfobody\n");
