@@ -182,13 +182,14 @@ void connectToServer(char* ipAdresse){
 void command(){
 	int exitWileLoop = 0;
 	char command[20];
-	printf("_____________________________________________________________\n");
-	printf("|                                                            |\n");
-	printf("|Befehle:                                                    |\n");
-	printf("|/LOGIN  für das Einlogen auf ein Sever.                     |\n");
-	printf("|/INFO   für das Anfordern der Namen aller angemeldeten User.|\n");
-	printf("|/LOGOUT für das Auslogen und/oder Schließen des Clients.    |\n");
-	printf("|____________________________________________________________|\n");
+	printf(" _____________________________________________________________\n");
+	printf("|                                                             |\n");
+	printf("| Befehle:                                                    |\n");
+	printf("|                                                             |\n");
+	printf("| /LOGIN  für das Einlogen auf ein Sever.                     |\n");
+	printf("| /INFO   für das Anfordern der Namen aller angemeldeten User.|\n");
+	printf("| /LOGOUT für das Auslogen und/oder Schließen des Clients.    |\n");
+	printf("|_____________________________________________________________|\n");
 	while (!exitWileLoop) {
 		printf("Geben sie ein Befehle ein:\n");
 

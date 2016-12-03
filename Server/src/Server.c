@@ -181,6 +181,7 @@ void connectToServer(char *ipAdresse){
 			createHeader(&header,CONNECT,0,1,0);
 			putNewServer(serverSocketFD);
 			send(localSocketFD,(void*) &header, sizeof(header), 0);
+			sendControlInfo(serverSocketFD, UNDEFINE, tabelleSize);
 			sendControlInfo(serverSocketFD, GET, 0);
 			printf("Verbindung Zum Server Erfolgreich\n");
 		}
@@ -229,6 +230,13 @@ void deleteEntry(int index){
 void commands(){
 	bool exitWileLoop = false;
 	char command[20];
+	printf(" _____________________________________________\n");
+	printf("|                                             |\n");
+	printf("| Befehle:                                    |\n");
+	printf("|                                             |\n");
+	printf("| /CONNECT für Verbinden zum anderen Servern  |:\n");
+	printf("| /CLOSE   für Schließen diesen Servers       |\n");
+	printf("|_____________________________________________|\n");
 	while (!exitWileLoop) {
 		printf("Geben sie ein Befehle ein:\n");
 		fgets(command, 20, stdin);
