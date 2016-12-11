@@ -98,7 +98,7 @@ void receivePackages(int);
 void passMessage(int,int);
 void createHeader(struct CommonHeader*,uint8_t,uint8_t,uint8_t,uint8_t);
 void connectToServer(char*);
-void sendControlInfo(int,uint8_t,int);
+void sendControlInfo(int,uint8_t);
 void notifyAllServers(void);
 void deleteEntry(int);
 void commands(void);
@@ -110,4 +110,5 @@ int sucheSocketFD(char*);
 void getControlInfo(int,int);
 void verbindungTrennen(int);
 void connectToMyself(void);
+int createTempBody(struct ControlInfoBody*);
 #endif /* SERVER_H_ */

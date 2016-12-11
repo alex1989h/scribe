@@ -131,7 +131,7 @@ void receivePackages(int currentSocketFD) {
 		} else if (receivedHeader.type == CONTROL_INFO) {
 			if (receivedHeader.flag == GET) {
 				printf("Give me all User Request\n");
-				sendControlInfo(currentSocketFD, UNDEFINE, tabelleSize);
+				sendControlInfo(currentSocketFD, UNDEFINE);
 			} else {
 				getControlInfo(currentSocketFD, receivedHeader.lenght);
 			}
@@ -181,25 +181,27 @@ void connectToServer(char *ipAdresse){
 			createHeader(&header,CONNECT,0,PROTOCOL_VERSION,0);
 			putNewServer(serverSocketFD);
 			send(localSocketFD,(void*) &header, sizeof(header), 0);
-			sendControlInfo(serverSocketFD, UNDEFINE, tabelleSize);
-			sendControlInfo(serverSocketFD, GET, 0);
+			sendControlInfo(serverSocketFD, UNDEFINE);
+			sendControlInfo(serverSocketFD, GET);
 			printf("Verbindung Zum Server Erfolgreich\n");
 		}
 	}
 }
 
-void sendControlInfo(int currentSocketFD, uint8_t flags, int size){
-
+void sendControlInfo(int currentSocketFD, uint8_t flags){
 	int result;
-
+	int size;
 	struct CommonHeader commonHeader;
+	struct ControlInfoBody tempBody;
+	size = createTempBody(&tempBody);
+
 	createHeader(&commonHeader, CONTROL_INFO, flags, PROTOCOL_VERSION , size);
 	result = send(currentSocketFD, (void*) &commonHeader, sizeof(commonHeader), 0);
 	if (result == -1) {
 		printf("ERROR on send(): Unable to send Control Info Lcontrol Info\n");
 	}
-	if (size > 0) {
-		result = send(currentSocketFD, (void*) &localBody, sizeof(struct Tabelle) * size, 0); //20 Byte
+	if (size > 0 && flags != GET) {
+		result = send(currentSocketFD, (void*) &tempBody, sizeof(struct Tabelle) * size, 0); //20 Byte
 		if (result == -1) {
 			printf("ERROR on send(): Unable to send Control Info Lcontrol Info\n");
 		}
@@ -207,11 +209,42 @@ void sendControlInfo(int currentSocketFD, uint8_t flags, int size){
 
 }
 
+int createTempBody(struct ControlInfoBody* tempBody){
+	int size = 0;
+	bool nameExist = false;
+	int i,j;
+	struct Tabelle tempEntry;
+	memset((void*)tempBody, 0, sizeof(tempBody));
+
+	for (i = 0; i < tabelleSize; i++) {
+		tempEntry = localBody.tabelle[i];
+		for (j = 0; j < tabelleSize; j++) {
+			if(strcmp(tempEntry.benutzername,localBody.tabelle[j].benutzername) == 0){
+				if(tempEntry.hops > localBody.tabelle[j].hops){
+					tempEntry = localBody.tabelle[j];
+				}
+			}
+		}
+		nameExist = false;
+		for (j = 0; j < size; j++) {
+			if(strcmp(tempEntry.benutzername,tempBody->tabelle[j].benutzername)){
+				nameExist = true;
+				break;
+			}
+		}
+		if(!nameExist){
+			tempBody->tabelle[size] = tempEntry;
+			size++;
+		}
+	}
+	return size;
+}
+
 void notifyAllServers(){
 	printf("Tabelle hat sich verändert. Sag allen bekannten Servern bescheid\n");
 	int i;
 	for(i=0;i < serverSize;i++){
-		sendControlInfo(serverfds[i],UNDEFINE,tabelleSize);
+		sendControlInfo(serverfds[i],UNDEFINE);
 	}
 }
 
@@ -363,7 +396,7 @@ void logOutRequest(int currentSocketFD,int size){
 			for (j = 0; j < tabelleSize; j++) {
 				if (strcmp(connectionInfo[j].name, tempName) == 0) {
 					deleteEntry(j);
-					break;
+					//break;
 				}
 			}
 			struct LogInOut logInOut;
@@ -443,17 +476,15 @@ void getControlInfo(int currentSocketFD, int size){
 		for(i = 0; i < size; i++){
 			nameExist = false;
 			for(j = 0; j < tabelleSize; j++){
-				if(strcmp(receivedBody.tabelle[i].benutzername,localBody.tabelle[j].benutzername) == 0){
-					nameExist = true;
-					if(receivedBody.tabelle[i].hops+1 < localBody.tabelle[j].hops){
+				if(currentSocketFD == connectionInfo[j].socketFD){
+					if(strcmp(receivedBody.tabelle[i].benutzername,localBody.tabelle[j].benutzername) == 0){
+						nameExist = true;
 						//Ersetze eintage in der localen Tabelle
 						localBody.tabelle[j].hops = receivedBody.tabelle[i].hops + 1;
-						connectionInfo[j].socketFD = currentSocketFD;
 						connectionInfo[j].hops = receivedBody.tabelle[i].hops + 1;
 						changesOnTabelle = true;
+						break;
 					}
-					break;
-				}
 			}
 			if(!nameExist){//Name war nicht drin also neuer Eintag
 				memcpy(&localBody.tabelle[tabelleSize],&receivedBody.tabelle[i],sizeof(localBody.tabelle[tabelleSize]));
