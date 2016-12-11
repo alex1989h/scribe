@@ -111,4 +111,6 @@ void getControlInfo(int,int);
 void verbindungTrennen(int);
 void connectToMyself(void);
 int createTempBody(struct ControlInfoBody*);
+int isMyClient(char*);
+void zeigeTabelle(void);
 #endif /* SERVER_H_ */

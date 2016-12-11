@@ -269,6 +269,7 @@ void commands(){
 	printf("|                                             |\n");
 	printf("| /CONNECT für Verbinden zum anderen Servern  |\n");
 	printf("| /CLOSE   für Schließen diesen Servers       |\n");
+	printf("| /INFO    zeige die ganze Tabelle            |\n");
 	printf("|_____________________________________________|\n");
 	while (!exitWileLoop) {
 		printf("Geben sie ein Befehle ein:\n");
@@ -283,6 +284,8 @@ void commands(){
 		}else if(strcmp(command, "/CLOSE") == 0){
 			close(baseSocketFD);
 			exit(EXIT_SUCCESS);
+		}else if(strcmp(command, "/INFO") == 0){
+			zeigeTabelle();
 		}
 	}
 }
@@ -478,29 +481,31 @@ void getControlInfo(int currentSocketFD, int size){
 	}else{
 		for(i = 0; i < size; i++){
 			nameExist = false;
-			for(j = 0; j < tabelleSize; j++){
-				if(currentSocketFD == connectionInfo[j].socketFD){
-					if(strcmp(receivedBody.tabelle[i].benutzername,localBody.tabelle[j].benutzername) == 0){
-						nameExist = true;
-						if(receivedBody.tabelle[i].hops + 1 != localBody.tabelle[j].hops){
-						//Ersetze eintage in der localen Tabelle
-							localBody.tabelle[j].hops = receivedBody.tabelle[i].hops + 1;
-							connectionInfo[j].hops = receivedBody.tabelle[i].hops + 1;
-							changesOnTabelle = true;
-							break;
+			if(!isMyClient(receivedBody.tabelle[i].benutzername)){
+				for(j = 0; j < tabelleSize; j++){
+					if(currentSocketFD == connectionInfo[j].socketFD){
+						if(strcmp(receivedBody.tabelle[i].benutzername,localBody.tabelle[j].benutzername) == 0){
+							nameExist = true;
+							if(receivedBody.tabelle[i].hops + 1 != localBody.tabelle[j].hops){
+							//Ersetze eintage in der localen Tabelle
+								localBody.tabelle[j].hops = receivedBody.tabelle[i].hops + 1;
+								connectionInfo[j].hops = receivedBody.tabelle[i].hops + 1;
+								changesOnTabelle = true;
+								break;
+							}
 						}
 					}
 				}
-			}
-			if(!nameExist){//Name war nicht drin also neuer Eintag
-				memcpy(&localBody.tabelle[tabelleSize],&receivedBody.tabelle[i],sizeof(localBody.tabelle[tabelleSize]));
-				localBody.tabelle[tabelleSize].hops++;
+				if(!nameExist){//Name war nicht drin also neuer Eintag
+					memcpy(&localBody.tabelle[tabelleSize],&receivedBody.tabelle[i],sizeof(localBody.tabelle[tabelleSize]));
+					localBody.tabelle[tabelleSize].hops++;
 
-				strcpy(connectionInfo[tabelleSize].name,receivedBody.tabelle[i].benutzername);
-				connectionInfo[tabelleSize].socketFD = currentSocketFD;
-				connectionInfo[tabelleSize].hops = receivedBody.tabelle[i].hops + 1;
-				tabelleSize++;
-				changesOnTabelle = true;
+					strcpy(connectionInfo[tabelleSize].name,receivedBody.tabelle[i].benutzername);
+					connectionInfo[tabelleSize].socketFD = currentSocketFD;
+					connectionInfo[tabelleSize].hops = receivedBody.tabelle[i].hops + 1;
+					tabelleSize++;
+					changesOnTabelle = true;
+				}
 			}
 		}
 		//Jetz soll geprüft werden ob irgendwelche schon gespeicherten Client vom anderen Server ausgefallen sind
@@ -584,5 +589,25 @@ void connectToMyself(){
 		exit(EXIT_FAILURE);
 	} else {
 		printf("Verbindung zum sich selber hergestellt\n");
+	}
+}
+
+int isMyClient(char* tempName){
+	int result = 0;
+	int i;
+	for (i = 0; i < tabelleSize; i++) {
+		if(strcmp(tempName,localBody.tabelle[i].benutzername) == 0 && localBody.tabelle[i].hops == 1){
+			result = 1;
+			break;
+		}
+	}
+	return result;
+}
+
+void zeigeTabelle(){
+	int i;
+	printf("Name			Hops	File Descriptor\n");
+	for (i = 0; i < tabelleSize; ++i) {
+		printf("%s		%d	%d\n",connectionInfo[i].name,connectionInfo[i].hops,connectionInfo[i].socketFD);
 	}
 }
