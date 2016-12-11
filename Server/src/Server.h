@@ -110,7 +110,8 @@ int sucheSocketFD(char*);
 void getControlInfo(int,int);
 void verbindungTrennen(int);
 void connectToMyself(void);
-int createTempBody(struct ControlInfoBody*);
+int createNewBody(int,struct ControlInfoBody*);
 int isMyClient(char*);
 void zeigeTabelle(void);
+int deleteEntriesBelongToDestination(int,struct ControlInfoBody*);
 #endif /* SERVER_H_ */

@@ -265,13 +265,14 @@ void receiveMessage(int size){
 			printf("ERROR on recv():Unable to receive Message Nachricht");
 		}
 	}
-	printf("(%s -> %s)\n Message:%s\n", messageBody.quellbenutzername,messageBody.zielbenutzername, messageBody.nachricht);
+	printf("(%s -> %s)\n Message: %s\n", messageBody.quellbenutzername,messageBody.zielbenutzername, messageBody.nachricht);
 }
 
 void getUserNames(int size){
 	int result;
 	struct ControlInfoBody controlInfoBody;
 	memset((void*) &controlInfoBody, 0, sizeof(controlInfoBody));
+	printf("Dein Name: %s\n",name);
 	if(size > 0){
 		result = recv(baseSocketFD, (void*) &controlInfoBody, sizeof(struct Tabelle) * size, 0); //BYTE
 		if (result == -1) {
@@ -279,8 +280,7 @@ void getUserNames(int size){
 		} else {
 			int i = 0;
 			for (i = 0; i < size; i++) {
-				printf("%d: Name: %s\n", i,
-						controlInfoBody.tabelle[i].benutzername);
+				printf("%d: Name: %s\n", i+1, controlInfoBody.tabelle[i].benutzername);
 			}
 		}
 	}

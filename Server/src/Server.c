@@ -192,8 +192,8 @@ void sendControlInfo(int currentSocketFD, uint8_t flags){
 	int result;
 	int size;
 	struct CommonHeader commonHeader;
-	struct ControlInfoBody tempBody;
-	size = createTempBody(&tempBody);
+	struct ControlInfoBody newBody;
+	size = createNewBody(currentSocketFD,&newBody);
 
 	createHeader(&commonHeader, CONTROL_INFO, flags, PROTOCOL_VERSION , size);
 	result = send(currentSocketFD, (void*) &commonHeader, sizeof(commonHeader), 0);
@@ -201,7 +201,7 @@ void sendControlInfo(int currentSocketFD, uint8_t flags){
 		printf("ERROR on send(): Unable to send Control Info Lcontrol Info\n");
 	}
 	if (size > 0 && flags != GET) {
-		result = send(currentSocketFD, (void*) &tempBody, sizeof(struct Tabelle) * size, 0); //20 Byte
+		result = send(currentSocketFD, (void*) &newBody, sizeof(struct Tabelle) * size, 0); //20 Byte
 		if (result == -1) {
 			printf("ERROR on send(): Unable to send Control Info Lcontrol Info\n");
 		}
@@ -209,31 +209,34 @@ void sendControlInfo(int currentSocketFD, uint8_t flags){
 
 }
 
-int createTempBody(struct ControlInfoBody* tempBody){
+int createNewBody(int currentSocketFD, struct ControlInfoBody* newBody){
 	int size = 0;
+	int tempSize = 0;
 	bool nameExist = false;
 	int i,j;
 	struct Tabelle tempEntry;
-	memset((void*)tempBody, 0, sizeof(tempBody));
+	struct ControlInfoBody tempBody;
+	memset((void*)newBody, 0, sizeof(newBody));
+	tempSize = deleteEntriesBelongToDestination(currentSocketFD ,&tempBody);
 
-	for (i = 0; i < tabelleSize; i++) {
-		tempEntry = localBody.tabelle[i];
-		for (j = 0; j < tabelleSize; j++) {
-			if(strcmp(tempEntry.benutzername,localBody.tabelle[j].benutzername) == 0){
-				if(tempEntry.hops > localBody.tabelle[j].hops){
-					tempEntry = localBody.tabelle[j];
+	for (i = 0; i < tempSize; i++) {
+		tempEntry = tempBody.tabelle[i];
+		for (j = 0; j < tempSize; j++) {
+			if(strcmp(tempEntry.benutzername,tempBody.tabelle[j].benutzername) == 0){
+				if(tempEntry.hops > tempBody.tabelle[j].hops){
+					tempEntry = tempBody.tabelle[j];
 				}
 			}
 		}
 		nameExist = false;
 		for (j = 0; j < size; j++) {
-			if(strcmp(tempEntry.benutzername,tempBody->tabelle[j].benutzername) == 0){
+			if(strcmp(tempEntry.benutzername,newBody->tabelle[j].benutzername) == 0){
 				nameExist = true;
 				break;
 			}
 		}
 		if(!nameExist){
-			tempBody->tabelle[size] = tempEntry;
+			newBody->tabelle[size] = tempEntry;
 			size++;
 		}
 	}
@@ -521,6 +524,7 @@ void getControlInfo(int currentSocketFD, int size){
 				if(!nameExist){
 					deleteEntry(i);
 					changesOnTabelle = true;
+					i--;
 				}
 			}
 		}
@@ -606,8 +610,21 @@ int isMyClient(char* tempName){
 
 void zeigeTabelle(){
 	int i;
-	printf("Name			Hops	File Descriptor\n");
+	printf("Name		Hops	File Descriptor\n");
 	for (i = 0; i < tabelleSize; ++i) {
 		printf("%s		%d	%d\n",connectionInfo[i].name,connectionInfo[i].hops,connectionInfo[i].socketFD);
 	}
+}
+
+int deleteEntriesBelongToDestination(int currentSocketFD ,struct ControlInfoBody* tempBody){
+	int size = 0;
+	int i;
+	memset((void*)tempBody, 0, sizeof(tempBody));
+	for (i = 0; i < tabelleSize; i++) {
+		if(connectionInfo[i].socketFD != currentSocketFD){
+			tempBody->tabelle[size] = localBody.tabelle[i];
+			size++;
+		}
+	}
+	return size;
 }
