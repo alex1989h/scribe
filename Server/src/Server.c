@@ -227,7 +227,7 @@ int createTempBody(struct ControlInfoBody* tempBody){
 		}
 		nameExist = false;
 		for (j = 0; j < size; j++) {
-			if(strcmp(tempEntry.benutzername,tempBody->tabelle[j].benutzername)){
+			if(strcmp(tempEntry.benutzername,tempBody->tabelle[j].benutzername) == 0){
 				nameExist = true;
 				break;
 			}
@@ -478,12 +478,14 @@ void getControlInfo(int currentSocketFD, int size){
 			for(j = 0; j < tabelleSize; j++){
 				if(currentSocketFD == connectionInfo[j].socketFD){
 					if(strcmp(receivedBody.tabelle[i].benutzername,localBody.tabelle[j].benutzername) == 0){
-						nameExist = true;
+						if(receivedBody.tabelle[i].hops != localBody.tabelle[j].hops){
+							nameExist = true;
 						//Ersetze eintage in der localen Tabelle
-						localBody.tabelle[j].hops = receivedBody.tabelle[i].hops + 1;
-						connectionInfo[j].hops = receivedBody.tabelle[i].hops + 1;
-						changesOnTabelle = true;
-						break;
+							localBody.tabelle[j].hops = receivedBody.tabelle[i].hops + 1;
+							connectionInfo[j].hops = receivedBody.tabelle[i].hops + 1;
+							changesOnTabelle = true;
+							break;
+						}
 					}
 				}
 			}
