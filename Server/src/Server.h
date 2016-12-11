@@ -103,7 +103,7 @@ void notifyAllServers(void);
 void deleteEntry(int);
 void commands(void);
 void putNewServer(int);
-void deleteServer(int);
+int deleteServer(int);
 void logInRequest(int,int);
 void logOutRequest(int,int);
 int sucheSocketFD(char*);

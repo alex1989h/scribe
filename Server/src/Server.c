@@ -287,11 +287,13 @@ void commands(){
 	}
 }
 
-void deleteServer(int currentSocketFD){
+int deleteServer(int currentSocketFD){
+	int isServer = 0;
 	pthread_mutex_lock(&mtx);
 	int i;
 	for (i = 0; i < serverSize; i++) {
 		if (serverfds[i] == currentSocketFD) {
+			isServer = 1;
 			serverfds[i] = serverfds[serverSize - 1];
 			serverfds[serverSize - 1] = 0;
 			serverSize--;
@@ -299,6 +301,7 @@ void deleteServer(int currentSocketFD){
 		}
 	}
 	pthread_mutex_unlock(&mtx);
+	return isServer;
 }
 
 void putNewServer(int currentSocketFD){
@@ -478,8 +481,8 @@ void getControlInfo(int currentSocketFD, int size){
 			for(j = 0; j < tabelleSize; j++){
 				if(currentSocketFD == connectionInfo[j].socketFD){
 					if(strcmp(receivedBody.tabelle[i].benutzername,localBody.tabelle[j].benutzername) == 0){
-						if(receivedBody.tabelle[i].hops != localBody.tabelle[j].hops){
-							nameExist = true;
+						nameExist = true;
+						if(receivedBody.tabelle[i].hops + 1 != localBody.tabelle[j].hops){
 						//Ersetze eintage in der localen Tabelle
 							localBody.tabelle[j].hops = receivedBody.tabelle[i].hops + 1;
 							connectionInfo[j].hops = receivedBody.tabelle[i].hops + 1;
@@ -523,15 +526,31 @@ void getControlInfo(int currentSocketFD, int size){
 }
 
 void verbindungTrennen(int currentSocketFD){
-	int i;
+	int i,j;
+	char tempName[15];
 	bool changesOnTabelle = false;
 	printf("Server oder Client ausgefallen\n");
-	deleteServer(currentSocketFD);
-	for (i = 0; i < tabelleSize; i++) {
-		if (connectionInfo[i].socketFD == currentSocketFD) {
-			deleteEntry(i);
-			changesOnTabelle = true;
+	if(deleteServer(currentSocketFD)){
+		for (i = 0; i < tabelleSize; i++) {
+			if (connectionInfo[i].socketFD == currentSocketFD) {
+				deleteEntry(i);
+				changesOnTabelle = true;
+			}
 		}
+	}else{
+		for (i = 0; i < tabelleSize; i++) {
+			if (connectionInfo[i].socketFD == currentSocketFD) {
+				strcpy(tempName, connectionInfo[i].name);
+				for(j = 0; j < tabelleSize; j++){
+					if(strcmp(tempName,connectionInfo[j].name) == 0){
+						deleteEntry(i);
+						changesOnTabelle = true;
+						j--;
+					}
+				}
+			}
+		}
+
 	}
 
 	if (changesOnTabelle) {
