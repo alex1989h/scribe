@@ -99,7 +99,7 @@ void passMessage(int,int);
 void createHeader(struct CommonHeader*,uint8_t,uint8_t,uint8_t,uint8_t);
 void connectToServer(char*);
 void sendControlInfo(int,uint8_t);
-void notifyAllServers(void);
+void notifyAllServers(int);
 void deleteEntry(int);
 void commands(void);
 void putNewServer(int);

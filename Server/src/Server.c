@@ -243,11 +243,13 @@ int createNewBody(int currentSocketFD, struct ControlInfoBody* newBody){
 	return size;
 }
 
-void notifyAllServers(){
+void notifyAllServers(int currentSocketFD){
 	printf("Tabelle hat sich verändert. Sag allen bekannten Servern bescheid\n");
 	int i;
 	for(i=0;i < serverSize;i++){
-		sendControlInfo(serverfds[i],UNDEFINE);
+		if(serverfds[i] != currentSocketFD){
+			sendControlInfo(serverfds[i],UNDEFINE);
+		}
 	}
 }
 
@@ -382,7 +384,7 @@ void logInRequest(int currentSocketFD, int size) {
 			strcpy(localBody.tabelle[tabelleSize].benutzername, tempName);
 			localBody.tabelle[tabelleSize].hops = 1;
 			tabelleSize++;
-			notifyAllServers();
+			notifyAllServers(-1);
 		}
 	}else{
 		printf("Es wurde ein kein Name eingegeben\n");
@@ -422,7 +424,7 @@ void logOutRequest(int currentSocketFD,int size){
 			}
 
 			FD_CLR(currentSocketFD, &activefds);
-			notifyAllServers();
+			notifyAllServers(-1);
 		}
 	}else{
 		printf("Fehler.\nBeim Auslogen wurde die Größe 0 des Benutzernames übermittelt\n");
@@ -469,6 +471,7 @@ void getControlInfo(int currentSocketFD, int size){
 	int result;
 	int i,j;
 	bool nameExist = false;
+	bool entryAdded = false;
 	bool changesOnTabelle = false;
 	printf("ControlInfo erhalten\n");
 	putNewServer(currentSocketFD);
@@ -495,6 +498,7 @@ void getControlInfo(int currentSocketFD, int size){
 								localBody.tabelle[j].hops = receivedBody.tabelle[i].hops + 1;
 								connectionInfo[j].hops = receivedBody.tabelle[i].hops + 1;
 								changesOnTabelle = true;
+								entryAdded = true;
 								break;
 							}
 						}
@@ -509,6 +513,7 @@ void getControlInfo(int currentSocketFD, int size){
 					connectionInfo[tabelleSize].hops = receivedBody.tabelle[i].hops + 1;
 					tabelleSize++;
 					changesOnTabelle = true;
+					entryAdded = true;
 				}
 			}
 		}
@@ -530,7 +535,12 @@ void getControlInfo(int currentSocketFD, int size){
 			}
 		}
 		if(changesOnTabelle){
-			notifyAllServers();
+			if(entryAdded) {
+				notifyAllServers(-1);
+			}else{
+				notifyAllServers(currentSocketFD);
+			}
+
 		}
 	}
 }
@@ -565,7 +575,7 @@ void verbindungTrennen(int currentSocketFD){
 	}
 
 	if (changesOnTabelle) {
-		notifyAllServers();
+		notifyAllServers(-1);
 	}
 	FD_CLR(currentSocketFD, &activefds);
 	close(currentSocketFD);
