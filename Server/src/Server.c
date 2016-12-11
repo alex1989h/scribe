@@ -405,6 +405,7 @@ void logOutRequest(int currentSocketFD,int size){
 			for (j = 0; j < tabelleSize; j++) {
 				if (strcmp(connectionInfo[j].name, tempName) == 0) {
 					deleteEntry(j);
+					j--;
 					//break;
 				}
 			}
@@ -544,6 +545,7 @@ void verbindungTrennen(int currentSocketFD){
 			if (connectionInfo[i].socketFD == currentSocketFD) {
 				deleteEntry(i);
 				changesOnTabelle = true;
+				i--;
 			}
 		}
 	}else{
