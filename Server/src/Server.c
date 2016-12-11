@@ -485,6 +485,7 @@ void getControlInfo(int currentSocketFD, int size){
 						changesOnTabelle = true;
 						break;
 					}
+				}
 			}
 			if(!nameExist){//Name war nicht drin also neuer Eintag
 				memcpy(&localBody.tabelle[tabelleSize],&receivedBody.tabelle[i],sizeof(localBody.tabelle[tabelleSize]));
