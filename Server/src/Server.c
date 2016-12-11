@@ -458,10 +458,18 @@ void passMessage(int currentSocketFD, int size){
 }
 
 int sucheSocketFD(char* ziehlname){
-	int j;
+	int j,i;
+	struct ConnectionInfo tempInfo;
+
 	for (j = 0; j < tabelleSize; j++) {
 		if (strcmp(connectionInfo[j].name, ziehlname) == 0) {
-			return connectionInfo[j].socketFD;
+			tempInfo = connectionInfo[j];
+			for (i = 0; i < tabelleSize; i++) {
+				if(strcmp(connectionInfo[i].name, ziehlname) == 0 && tempInfo.hops > connectionInfo[i].hops){
+					tempInfo = connectionInfo[i];
+				}
+			}
+			return tempInfo.socketFD;
 		}
 	}
 	return 0;
