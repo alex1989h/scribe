@@ -152,7 +152,7 @@ void sendMessage(char* quelle, char* ziel, char* message){
 void connectToServer(char* ipAdresse){
 	int result = 0;
 	struct sockaddr_in isa;
-		baseSocketFD = socket(AF_INET, SOCK_STREAM, 0);
+		baseSocketFD = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP);
 		if (baseSocketFD == -1) {
 			printf("ERROR on socket(): Erstellung des Sockets fehlgeschlagen\n");
 			exit(EXIT_SUCCESS);

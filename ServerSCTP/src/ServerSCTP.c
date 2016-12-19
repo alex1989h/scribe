@@ -27,7 +27,7 @@ int main(void) {
 	struct sockaddr_in isa;
 	memset((void *) &localBody, 0, sizeof(localBody));
 	FD_ZERO(&activefds);
-	baseSocketFD = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	baseSocketFD = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP);
 	if (baseSocketFD < 0) {
 		perror("socket");
 		printf("ERROR on socket(): Erstellung eines Sockets fehlgeschlagen.\n");
@@ -37,6 +37,7 @@ int main(void) {
 	memset((void *) &isa, 0, sizeof(isa));
 
 	isa.sin_port = htons(PORT);
+	isa.sin_family = AF_INET;
 
 	int yes = 1;
 	result = setsockopt(baseSocketFD, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
@@ -595,7 +596,7 @@ void verbindungTrennen(int currentSocketFD){
 void connectToMyself(){
 	int result = 0;
 	struct sockaddr_in isa;
-	localSocketFD = socket(AF_INET, SOCK_STREAM, 0);
+	localSocketFD = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP);
 	if (localSocketFD == -1) {
 		printf("ERROR on socket(): Erstellung des Sockets fehlgeschlagen\n");
 	}
