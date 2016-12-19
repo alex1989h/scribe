@@ -112,6 +112,7 @@ void newConnection() {
 }
 
 void receivePackages(int currentSocketFD) {
+	pthread_mutex_lock(&mtx);
 	int result;
 	struct CommonHeader receivedHeader;
 	memset(&receivedHeader, 0, sizeof(receivedHeader));
@@ -143,6 +144,7 @@ void receivePackages(int currentSocketFD) {
 			printf("Unbekannter Header Typ\n");
 		}
 	}
+	pthread_mutex_unlock(&mtx);
 }
 
 void createHeader(struct CommonHeader* commonHeader, uint8_t type, uint8_t flag, uint8_t version, uint8_t lenght) {
@@ -154,6 +156,7 @@ void createHeader(struct CommonHeader* commonHeader, uint8_t type, uint8_t flag,
 }
 
 void connectToServer(char *ipAdresse){
+	pthread_mutex_lock(&mtx);
 	int result;
 	struct sockaddr_in isa;
 	int serverSocketFD = socket(AF_INET, SOCK_STREAM, 0);
@@ -186,6 +189,7 @@ void connectToServer(char *ipAdresse){
 			printf("Verbindung Zum Server Erfolgreich\n");
 		}
 	}
+	pthread_mutex_unlock(&mtx);
 }
 
 void sendControlInfo(int currentSocketFD, uint8_t flags){
@@ -297,7 +301,6 @@ void commands(){
 
 int deleteServer(int currentSocketFD){
 	int isServer = 0;
-	pthread_mutex_lock(&mtx);
 	int i;
 	for (i = 0; i < serverSize; i++) {
 		if (serverfds[i] == currentSocketFD) {
@@ -308,12 +311,10 @@ int deleteServer(int currentSocketFD){
 			break;
 		}
 	}
-	pthread_mutex_unlock(&mtx);
 	return isServer;
 }
 
 void putNewServer(int currentSocketFD){
-	pthread_mutex_lock(&mtx);
 	int i;
 	bool serverExist = false;
 	if (serverSize > 0) {
@@ -335,7 +336,6 @@ void putNewServer(int currentSocketFD){
 		serverSize++;
 		printf("Neuer Server wurde hinzugefügt\n");
 	}
-	pthread_mutex_unlock(&mtx);
 }
 
 void logInRequest(int currentSocketFD, int size) {
@@ -440,18 +440,25 @@ void passMessage(int currentSocketFD, int size){
 	createHeader(&message.commonHeader,MESSAGE,0,PROTOCOL_VERSION,size);
 
 	result = recv(currentSocketFD, (void*) &message.messageBody.quellbenutzername, MSG_NAME_SIZE,0);
+	ERROR(result,"Unable to receive quellbenutzername");
 	result = recv(currentSocketFD, (void*) &message.messageBody.zielbenutzername, MSG_NAME_SIZE,0);
+	ERROR(result,"Unable to receive zielbenutzename");
 	if(size > 0){
 		result = recv(currentSocketFD, (void*) &message.messageBody.nachricht, size,0);
+		ERROR(result,"Unable to receive nachricht");
 	}
 	int sendSockedFD = sucheSocketFD(message.messageBody.zielbenutzername);
 
 	if(sendSockedFD > 0){
 		result = send(sendSockedFD, (void*) &message.commonHeader, sizeof(message.commonHeader),0);
+		ERROR(result,"Unable to send message header");
 		result = send(sendSockedFD, (void*) &message.messageBody.quellbenutzername, MSG_NAME_SIZE,0);
+		ERROR(result,"Unable to send quellbenutzername");
 		result = send(sendSockedFD, (void*) &message.messageBody.zielbenutzername, MSG_NAME_SIZE,0);
+		ERROR(result,"Unable to send zielbenutzername");
 		if(size > 0){
 			result = send(sendSockedFD, (void*) &message.messageBody.nachricht, size,0);
+			ERROR(result,"Unable to send nachricht");
 		}
 	}
 
@@ -496,33 +503,30 @@ void getControlInfo(int currentSocketFD, int size){
 	}else{
 		for(i = 0; i < size; i++){
 			nameExist = false;
-			if(!isMyClient(receivedBody.tabelle[i].benutzername)){
-				for(j = 0; j < tabelleSize; j++){
-					if(currentSocketFD == connectionInfo[j].socketFD){
-						if(strcmp(receivedBody.tabelle[i].benutzername,localBody.tabelle[j].benutzername) == 0){
-							nameExist = true;
-							if(receivedBody.tabelle[i].hops + 1 != localBody.tabelle[j].hops){
-							//Ersetze eintage in der localen Tabelle
-								localBody.tabelle[j].hops = receivedBody.tabelle[i].hops + 1;
-								connectionInfo[j].hops = receivedBody.tabelle[i].hops + 1;
-								changesOnTabelle = true;
-								entryAdded = true;
-								break;
-							}
-						}
+			for(j = 0; j < tabelleSize; j++){
+				if(strcmp(receivedBody.tabelle[i].benutzername,localBody.tabelle[j].benutzername) == 0){
+					nameExist = true;
+					if(receivedBody.tabelle[i].hops + 1 < localBody.tabelle[j].hops){
+					//Den kürzere Route speichern
+						localBody.tabelle[j].hops = receivedBody.tabelle[i].hops + 1;
+						connectionInfo[j].socketFD = currentSocketFD;
+						connectionInfo[j].hops = receivedBody.tabelle[i].hops + 1;
+						changesOnTabelle = true;
+						entryAdded = true;
+						break;
 					}
 				}
-				if(!nameExist){//Name war nicht drin also neuer Eintag
-					memcpy(&localBody.tabelle[tabelleSize],&receivedBody.tabelle[i],sizeof(localBody.tabelle[tabelleSize]));
-					localBody.tabelle[tabelleSize].hops++;
+			}
+			if(!nameExist){//Name war nicht drin also neuer Eintag
+				memcpy(&localBody.tabelle[tabelleSize],&receivedBody.tabelle[i],sizeof(localBody.tabelle[tabelleSize]));
+				localBody.tabelle[tabelleSize].hops++;
 
-					strcpy(connectionInfo[tabelleSize].name,receivedBody.tabelle[i].benutzername);
-					connectionInfo[tabelleSize].socketFD = currentSocketFD;
-					connectionInfo[tabelleSize].hops = receivedBody.tabelle[i].hops + 1;
-					tabelleSize++;
-					changesOnTabelle = true;
-					entryAdded = true;
-				}
+				strcpy(connectionInfo[tabelleSize].name,receivedBody.tabelle[i].benutzername);
+				connectionInfo[tabelleSize].socketFD = currentSocketFD;
+				connectionInfo[tabelleSize].hops = receivedBody.tabelle[i].hops + 1;
+				tabelleSize++;
+				changesOnTabelle = true;
+				entryAdded = true;
 			}
 		}
 		//Jetz soll geprüft werden ob irgendwelche schon gespeicherten Client vom anderen Server ausgefallen sind
@@ -630,9 +634,9 @@ int isMyClient(char* tempName){
 
 void zeigeTabelle(){
 	int i;
-	printf("Name		Hops	File Descriptor\n");
+	printf("Name			Hops	File Descriptor\n");
 	for (i = 0; i < tabelleSize; ++i) {
-		printf("%s		%d	%d\n",connectionInfo[i].name,connectionInfo[i].hops,connectionInfo[i].socketFD);
+		printf("%s			%d	%d\n",connectionInfo[i].name,connectionInfo[i].hops,connectionInfo[i].socketFD);
 	}
 }
 

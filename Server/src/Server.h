@@ -20,6 +20,9 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <unistd.h>
+#define ERROR(VALUE,TEXT) if (VALUE == -1) {\
+			printf(TEXT);\
+		}
 
 #define PORT 9012
 #define IP "127.0.0.1"
