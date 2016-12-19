@@ -20,6 +20,8 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <netinet/sctp.h>
+
 #define ERROR(VALUE,TEXT) if (VALUE == -1) {\
 			printf(TEXT);\
 		}

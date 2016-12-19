@@ -25,6 +25,13 @@ pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
 int main(void) {
 	int result;
 	struct sockaddr_in isa;
+
+//	struct sctp_paddrparams heartbeat;
+//	memset((void *) &heartbeat, 0, sizeof(struct sctp_paddrparams));
+//	heartbeat.spp_flags = SPP_HB_ENABLE;//Enable heartbeat
+//	heartbeat.spp_hbinterval = 5000;
+//	heartbeat.spp_pathmaxrxt = 1;
+
 	memset((void *) &localBody, 0, sizeof(localBody));
 	FD_ZERO(&activefds);
 	baseSocketFD = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP);

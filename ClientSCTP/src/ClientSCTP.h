@@ -18,6 +18,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
+#include <netinet/sctp.h>
 
 #define PORT 9012
 #define IP "127.0.0.1"
