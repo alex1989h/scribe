@@ -448,17 +448,18 @@ void passMessage(int currentSocketFD, int size){
 		ERROR(result,"Unable to receive nachricht");
 	}
 	int sendSockedFD = sucheSocketFD(message.messageBody.zielbenutzername);
-
-	if(sendSockedFD > 0){
-		result = send(sendSockedFD, (void*) &message.commonHeader, sizeof(message.commonHeader),0);
-		ERROR(result,"Unable to send message header");
-		result = send(sendSockedFD, (void*) &message.messageBody.quellbenutzername, MSG_NAME_SIZE,0);
-		ERROR(result,"Unable to send quellbenutzername");
-		result = send(sendSockedFD, (void*) &message.messageBody.zielbenutzername, MSG_NAME_SIZE,0);
-		ERROR(result,"Unable to send zielbenutzername");
-		if(size > 0){
-			result = send(sendSockedFD, (void*) &message.messageBody.nachricht, size,0);
-			ERROR(result,"Unable to send nachricht");
+	if( sendSockedFD != currentSocketFD){
+		if(sendSockedFD > 0){
+			result = send(sendSockedFD, (void*) &message.commonHeader, sizeof(message.commonHeader),0);
+			ERROR(result,"Unable to send message header");
+			result = send(sendSockedFD, (void*) &message.messageBody.quellbenutzername, MSG_NAME_SIZE,0);
+			ERROR(result,"Unable to send quellbenutzername");
+			result = send(sendSockedFD, (void*) &message.messageBody.zielbenutzername, MSG_NAME_SIZE,0);
+			ERROR(result,"Unable to send zielbenutzername");
+			if(size > 0){
+				result = send(sendSockedFD, (void*) &message.messageBody.nachricht, size,0);
+				ERROR(result,"Unable to send nachricht");
+			}
 		}
 	}
 
