@@ -26,12 +26,6 @@ int main(void) {
 	int result;
 	struct sockaddr_in isa;
 
-	struct sctp_paddrparams heartbeat;
-	memset((void *) &heartbeat, 0, sizeof(struct sctp_paddrparams));
-//	heartbeat.spp_flags = SPP_HB_ENABLE;//Enable heartbeat
-//	heartbeat.spp_hbinterval = 5000;
-//	heartbeat.spp_pathmaxrxt = 1;
-
 	memset((void *) &localBody, 0, sizeof(localBody));
 	FD_ZERO(&activefds);
 	baseSocketFD = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP);
@@ -48,22 +42,6 @@ int main(void) {
 
 	int yes = 1;
 	result = setsockopt(baseSocketFD, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));//Wiederverwendung der lokalen Addresse
-	if (result == -1) {
-		perror("setsockopt");
-		printf("ERROR on setsockopt: Socket Optionen setzten fehlgeschlagen.\n");
-		exit(EXIT_FAILURE);
-	}
-	int heartbeatlenght = sizeof(struct sctp_paddrparams);
-	result = getsockopt(baseSocketFD, SOL_SCTP, SCTP_PEER_ADDR_PARAMS , &heartbeat, (socklen_t*)&heartbeatlenght);
-	if (result == -1) {
-		perror("setsockopt");
-		printf("ERROR on setsockopt: Socket Optionen setzten fehlgeschlagen.\n");
-		exit(EXIT_FAILURE);
-	}
-
-	heartbeat.spp_flags = SPP_HB_DISABLE;//Disable  heartbeat
-	heartbeat.spp_hbinterval = 0;
-	result = setsockopt(baseSocketFD, SOL_SCTP, SCTP_PEER_ADDR_PARAMS , &heartbeat, sizeof(struct sctp_paddrparams));
 	if (result == -1) {
 		perror("setsockopt");
 		printf("ERROR on setsockopt: Socket Optionen setzten fehlgeschlagen.\n");
@@ -117,6 +95,7 @@ void* Server(void* not_used) {
 }
 
 void newConnection() {
+	int result;
 	struct sockaddr_in tempIsa;
 	memset((void*) &tempIsa, 0, sizeof(tempIsa));
 	unsigned int tempIsaSize = sizeof(tempIsa);
@@ -128,7 +107,28 @@ void newConnection() {
 		printf("ERROR on accept: Es konnte keine Verbindung aufgebaut werden.\n");
 	} else {
 		FD_SET(connectionFD, &activefds);
-		printf("Accept successful!\n");
+		struct sctp_paddrparams heartbeat;
+		memset((void *) &heartbeat, 0, sizeof(struct sctp_paddrparams));
+		int heartbeatlenght = sizeof(struct sctp_paddrparams);
+
+		result = getsockopt(connectionFD, SOL_SCTP, SCTP_PEER_ADDR_PARAMS , &heartbeat, (socklen_t*)&heartbeatlenght);
+		if (result == -1) {
+			perror("setsockopt");
+			printf("ERROR on setsockopt: Socket Optionen setzten fehlgeschlagen.\n");
+			exit(EXIT_FAILURE);
+		}
+
+		heartbeat.spp_hbinterval = 1000;
+		result = setsockopt(connectionFD, SOL_SCTP, SCTP_PEER_ADDR_PARAMS , &heartbeat, sizeof(struct sctp_paddrparams));
+		if (result == -1) {
+			perror("setsockopt");
+			printf("ERROR on setsockopt: Socket Optionen setzten fehlgeschlagen.\n");
+			exit(EXIT_FAILURE);
+		}
+
+		getsockopt(connectionFD, SOL_SCTP, SCTP_PEER_ADDR_PARAMS , &heartbeat, (socklen_t*)&heartbeatlenght);
+
+		printf("Accept successful! Intervall: %d\n",heartbeat.spp_hbinterval);
 		printf("Ip: %s\n", inet_ntoa(tempIsa.sin_addr));
 		printf("Port: %i\n", ntohs(tempIsa.sin_port));
 	}
@@ -622,6 +622,7 @@ void connectToMyself(){
 	localSocketFD = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP);
 	if (localSocketFD == -1) {
 		printf("ERROR on socket(): Erstellung des Sockets fehlgeschlagen\n");
+
 	}
 	memset(&isa, 0, sizeof(isa));
 	isa.sin_family = AF_INET;

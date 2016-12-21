@@ -152,35 +152,35 @@ void sendMessage(char* quelle, char* ziel, char* message){
 void connectToServer(char* ipAdresse){
 	int result = 0;
 	struct sockaddr_in isa;
-		baseSocketFD = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP);
-		if (baseSocketFD == -1) {
-			printf("ERROR on socket(): Erstellung des Sockets fehlgeschlagen\n");
-			exit(EXIT_SUCCESS);
-		}
-		memset(&isa, 0, sizeof(isa));
-		isa.sin_family = AF_INET;
-		isa.sin_port = htons(PORT);
-		result = inet_pton(AF_INET, ipAdresse, &isa.sin_addr);
-		if (result == 0) {
-			printf("ERROR on inet_pton():  Not valid network address\n");
-			close(baseSocketFD);
-			exit(EXIT_SUCCESS);
-		} else if (result == -1) {
-			printf("ERROR on inet_pton(): Not valid address family\n");
-			close(baseSocketFD);
-			exit(EXIT_SUCCESS);
-		}
-		result = connect(baseSocketFD, (struct sockaddr *) &isa, sizeof(isa));
+	baseSocketFD = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP);
+	if (baseSocketFD == -1) {
+		printf("ERROR on socket(): Erstellung des Sockets fehlgeschlagen\n");
+		exit(EXIT_SUCCESS);
+	}
+	memset(&isa, 0, sizeof(isa));
+	isa.sin_family = AF_INET;
+	isa.sin_port = htons(PORT);
+	result = inet_pton(AF_INET, ipAdresse, &isa.sin_addr);
+	if (result == 0) {
+		printf("ERROR on inet_pton():  Not valid network address\n");
+		close(baseSocketFD);
+		exit(EXIT_SUCCESS);
+	} else if (result == -1) {
+		printf("ERROR on inet_pton(): Not valid address family\n");
+		close(baseSocketFD);
+		exit(EXIT_SUCCESS);
+	}
+	result = connect(baseSocketFD, (struct sockaddr *) &isa, sizeof(isa));
 
-		if (result == -1) {
-			perror("connect");
-			printf("ERROR on connect(): Verbindung fehlgeschlagen\n");
-			close(baseSocketFD);
-			exit(EXIT_FAILURE);
+	if (result == -1) {
+		perror("connect");
+		printf("ERROR on connect(): Verbindung fehlgeschlagen\n");
+		close(baseSocketFD);
+		exit(EXIT_FAILURE);
 
-		}else{
-			printf("Verbindung zum Server hergestellt\n");
-		}
+	} else {
+		printf("Verbindung zum Server hergestellt\n");
+	}
 }
 
 void command(){
