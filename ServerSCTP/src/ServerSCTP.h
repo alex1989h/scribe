@@ -22,7 +22,7 @@
 #include <unistd.h>
 #include <netinet/udp.h>
 #include <netinet/sctp.h>
-
+#define MAX_LISTEN_QUEUE 10
 #define ERROR(VALUE,TEXT) if (VALUE == -1) {\
 			printf(TEXT);\
 		}

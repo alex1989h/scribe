@@ -40,21 +40,21 @@ int main(void) {
 	isa.sin_port = htons(PORT);
 
 	int yes = 1;
-	result = setsockopt(baseSocketFD, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+	result = setsockopt(baseSocketFD, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)); //Wiederverwendung der lokalen Addresse
 	if (result == -1) {
 		perror("setsockopt");
 		printf("ERROR on setsockopt: Socket Optionen setzten fehlgeschlagen.\n");
 		exit(EXIT_FAILURE);
 	}
 
-	result = bind(baseSocketFD, (struct sockaddr *) &isa, sizeof(isa));
+	result = bind(baseSocketFD, (struct sockaddr *) &isa, sizeof(isa));//Weist eine Addresse definiert bei sockaddr Struktur zu einem Socket
 	if (result < 0) {
 		perror("bind");
 		printf("ERROR on bind: Bind funktioniert nicht.\n");
 		exit(EXIT_FAILURE);
 	}
 
-	result = listen(baseSocketFD, 7);
+	result = listen(baseSocketFD, MAX_LISTEN_QUEUE);//Socket soll einkommende Anfragen akzeptieren
 
 	if (result < 0) {
 		perror("listen");

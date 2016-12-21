@@ -159,7 +159,7 @@ void connectToServer(char* ipAdresse){
 			exit(EXIT_SUCCESS);
 		}
 		memset(&isa, 0, sizeof(isa));
-		isa.sin_family = AF_INET;
+		isa.sin_family = AF_INET;	//IPv4 Protokollfamilie
 		isa.sin_port = htons(PORT);
 		result = inet_pton(AF_INET, ipAdresse, &isa.sin_addr);
 		if (result == 0) {
