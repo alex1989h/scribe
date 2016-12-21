@@ -26,8 +26,8 @@ int main(void) {
 	int result;
 	struct sockaddr_in isa;
 
-//	struct sctp_paddrparams heartbeat;
-//	memset((void *) &heartbeat, 0, sizeof(struct sctp_paddrparams));
+	struct sctp_paddrparams heartbeat;
+	memset((void *) &heartbeat, 0, sizeof(struct sctp_paddrparams));
 //	heartbeat.spp_flags = SPP_HB_ENABLE;//Enable heartbeat
 //	heartbeat.spp_hbinterval = 5000;
 //	heartbeat.spp_pathmaxrxt = 1;
@@ -48,6 +48,22 @@ int main(void) {
 
 	int yes = 1;
 	result = setsockopt(baseSocketFD, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+	if (result == -1) {
+		perror("setsockopt");
+		printf("ERROR on setsockopt: Socket Optionen setzten fehlgeschlagen.\n");
+		exit(EXIT_FAILURE);
+	}
+	int heartbeatlenght = sizeof(struct sctp_paddrparams);
+	result = getsockopt(baseSocketFD, SOL_SCTP, SCTP_PEER_ADDR_PARAMS , &heartbeat, (socklen_t*)&heartbeatlenght);
+	if (result == -1) {
+		perror("setsockopt");
+		printf("ERROR on setsockopt: Socket Optionen setzten fehlgeschlagen.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	heartbeat.spp_flags = SPP_HB_DISABLE;//Disable  heartbeat
+	heartbeat.spp_hbinterval = 0;
+	result = setsockopt(baseSocketFD, SOL_SCTP, SCTP_PEER_ADDR_PARAMS , &heartbeat, sizeof(struct sctp_paddrparams));
 	if (result == -1) {
 		perror("setsockopt");
 		printf("ERROR on setsockopt: Socket Optionen setzten fehlgeschlagen.\n");
