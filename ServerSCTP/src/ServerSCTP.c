@@ -182,7 +182,7 @@ void connectToServer(char *ipAdresse){
 	pthread_mutex_lock(&mtx);
 	int result;
 	struct sockaddr_in isa;
-	int serverSocketFD = socket(AF_INET, SOCK_STREAM, 0);
+	int serverSocketFD = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP);
 	if (serverSocketFD == -1) {
 		printf("ERROR on socket(): Erstellung des Sockets fehlgeschlagen\n");
 	}
