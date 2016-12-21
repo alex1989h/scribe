@@ -279,14 +279,14 @@ void deleteEntry(int index){
 void commands(){
 	bool exitWileLoop = false;
 	char command[COMAND_SIZE];
-	printf(" _____________________________________________\n");
-	printf("|                                             |\n");
-	printf("| Befehle:                                    |\n");
-	printf("|                                             |\n");
-	printf("| /CONNECT für Verbinden zum anderen Servern  |\n");
-	printf("| /CLOSE   für Schließen diesen Servers       |\n");
-	printf("| /INFO    zeige die ganze Tabelle            |\n");
-	printf("|_____________________________________________|\n");
+	printf(" ________________________________________\n");
+	printf("|                                        |\n");
+	printf("| Befehle:                               |\n");
+	printf("|                                        |\n");
+	printf("| /CONNECT Verbinde zum anderen Servern  |\n");
+	printf("| /CLOSE   Schließen diesen Server       |\n");
+	printf("| /INFO    Zeige die ganze Tabelle       |\n");
+	printf("|________________________________________|\n");
 	while (!exitWileLoop) {
 		printf("Geben sie ein Befehle ein:\n");
 		fgets(command, COMAND_SIZE, stdin);
