@@ -59,8 +59,8 @@ struct ControlInfo {
 };
 
 struct MessageBody {
-	char quellbenutzername[16];
-	char zielbenutzername[16];
+	char quellbenutzername[MSG_NAME_SIZE];
+	char zielbenutzername[MSG_NAME_SIZE];
 	char nachricht[255];
 };
 

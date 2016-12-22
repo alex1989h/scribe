@@ -72,11 +72,7 @@ void logIn(char* tempName) {
 
 		strcpy(logInOut.logInOutBody.benutzername, tempName);
 
-		ssize_t result = send(baseSocketFD, (void*) &logInOut.commonHeader, sizeof(logInOut.commonHeader), 0);
-		if (result == -1) {
-			printf("ERROR on send(): Unable to send LogInOut\n");
-		}
-		result = send(baseSocketFD, (void*) &logInOut.logInOutBody, size, 0);
+		ssize_t result = send(baseSocketFD, (void*) &logInOut, sizeof(logInOut.commonHeader)+size, 0);
 		if (result == -1) {
 			printf("ERROR on send(): Unable to send LogInOut\n");
 		}
@@ -92,11 +88,7 @@ void logOut(char* tempName){
 
 		strcpy(logInOut.logInOutBody.benutzername, tempName);
 
-		ssize_t result = send(baseSocketFD, (void*) &logInOut.commonHeader,sizeof(logInOut.commonHeader), 0);
-		if (result == -1) {
-			printf("ERROR on send(): Unable to send LogInOut\n");
-		}
-		result = send(baseSocketFD, (void*) &logInOut.logInOutBody, size, 0);
+		ssize_t result = send(baseSocketFD, (void*) &logInOut,sizeof(logInOut.commonHeader)+size, 0);
 		if (result == -1) {
 			printf("ERROR on send(): Unable to send LogInOut\n");
 		}
@@ -128,22 +120,8 @@ void sendMessage(char* quelle, char* ziel, char* message){
 		strcpy(messageStruct.messageBody.zielbenutzername,ziel);
 		strcpy(messageStruct.messageBody.nachricht,message);
 
-		result = send(baseSocketFD, (void*) &messageStruct.commonHeader,sizeof(messageStruct.commonHeader), 0);
-		if (result == -1) {
-			printf("ERROR on send():Unable so send the Message");
-		}
-
-		result = send(baseSocketFD,(void*) &messageStruct.messageBody.quellbenutzername, MSG_NAME_SIZE, 0);
-		if (result == -1) {
-			printf("ERROR on send():Unable so send the Message");
-		}
-
-		result = send(baseSocketFD, (void*) &messageStruct.messageBody.zielbenutzername, MSG_NAME_SIZE, 0);
-		if (result == -1) {
-			printf("ERROR on send():Unable so send the Message");
-		}
-
-		result = send(baseSocketFD, (void*) &messageStruct.messageBody.nachricht, size, 0);
+		int wholeMessageSize = sizeof(struct CommonHeader) + MSG_NAME_SIZE + MSG_NAME_SIZE + size;
+		result = send(baseSocketFD, (void*) &messageStruct.commonHeader, wholeMessageSize, 0);
 		if (result == -1) {
 			printf("ERROR on send():Unable so send the Message");
 		}
